@@ -56,20 +56,20 @@ def volumetricMap():
 
 
 def main():
-    # file = "1.png"
-    # img = cv2.imread(f"../data/{file}", )
-    # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    file = "1.png"
+    img = cv2.imread(f"../data/{file}", )
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    # reflectionMap = img
+    reflectionMap = img
 
-    # plt.imshow(img)
-    # plt.show()
-
-    depth_map = geometryEstimation()
-
-    plt.imshow(depth_map, cmap='plasma')
-    plt.colorbar()
+    plt.imshow(img)
     plt.show()
+
+    # depth_map = geometryEstimation()
+
+    # plt.imshow(depth_map, cmap='plasma')
+    # plt.colorbar()
+    # plt.show()
 
 
 main()
