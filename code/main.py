@@ -11,7 +11,6 @@ import cv2
 import tensorflow as tf
 
 """
-
 We define the input photograph, the radiance attenuation
 ratio map and the volumetric scattering radiance map as the
 Ref ection Map, the Transmittance Map and the Volumetric Map respectively
@@ -19,9 +18,7 @@ Ref ection Map, the Transmittance Map and the Volumetric Map respectively
 input photograph = reflection map 
 radiance attenuation ratio map = transmittance map 
 volumetric scattering radiance map = volumetric map 
-
 """
-
 
 def illuminationEstimation():
     print("not implemented yet")
@@ -29,7 +26,7 @@ def illuminationEstimation():
 
 def geometryEstimation():
     interpreter = tf.lite.Interpreter(
-        model_path="/Users/Elizabeth/Desktop/cs1290/MiDaS/midas/model.tflite")
+        model_path="/Users/Hannah/Desktop/cs1290/MiDaS/midas/model.tflite")
     interpreter.allocate_tensors()
     input_details = interpreter.get_input_details()
     output_details = interpreter.get_output_details()
@@ -71,7 +68,6 @@ def transmittanceMap(img):
     transmissionMap =  (transmission * 255).astype(np.uint8)
     return transmissionMap
 
-
 def volumetricMap():
     print("not implemented yet")
 
@@ -89,14 +85,14 @@ def main():
     # cv2.imshow('Transmission Map', tMap)
     # cv2.waitKey(0)
     # cv2.destroyAllWindows()
-    plt.imshow(tMap, cmap='gray')
-    plt.show()
-
-    # depth_map = geometryEstimation()
-
-    # plt.imshow(depth_map, cmap='plasma')
-    # # plt.colorbar()
+    # plt.imshow(tMap, cmap='gray')
     # plt.show()
+
+    depth_map = geometryEstimation()
+
+    plt.imshow(depth_map, cmap='plasma')
+    # plt.colorbar()
+    plt.show()
 
 
 main()
