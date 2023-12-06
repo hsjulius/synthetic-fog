@@ -28,7 +28,7 @@ def illuminationEstimation():
 
 
 def geometryEstimation():
-    midas = torch.hub.load("intel-isl/MiDaS", "MiDaS_small")
+    midas = torch.hub.load("isl-org/MiDaS", "MiDaS_small")
 
     # Load and preprocess the input image using OpenCV
     image_path = "../data/3.png"
@@ -92,10 +92,11 @@ def main():
     plt.imshow(tMap, cmap='gray')
     plt.show()
 
-    depth_map = geometryEstimation()
-    plt.imshow(depth_map, cmap="plasma")
-    plt.colorbar()
-    plt.show()
+    # depth_map = geometryEstimation()
+    # plt.imshow(depth_map, cmap="plasma")
+    # plt.colorbar()
+    # plt.show()
+    print(torch.hub.list("isl-org/MiDaS"))
 
 
 main()
