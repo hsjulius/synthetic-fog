@@ -28,7 +28,7 @@ def illuminationEstimation():
     print("not implemented yet")
 
 
-def geometryEstimation():
+def depthMap():
     midas = torch.hub.load("isl-org/MiDaS", "MiDaS")
 
     midas.eval()
@@ -99,7 +99,7 @@ def main():
     # plt.imshow(tMap, cmap='gray')
     # plt.show()
 
-    depth_map = geometryEstimation()
+    depth_map = depthMap()
     plt.imshow(depth_map, cmap="plasma")
     plt.colorbar()
     plt.show()
