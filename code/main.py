@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import cv2
 import torch
 import torchvision.transforms as T
+from PIL import Image
 
 """
 We define the input photograph, the radiance attenuation
@@ -60,23 +61,29 @@ def compute_surface_normals(image):
     # return img_gray_world
 
 
-def geometryEstimation():
+def depthMap():
     midas = torch.hub.load("isl-org/MiDaS", "MiDaS")
 
-    # Load and preprocess the input image using OpenCV
+    midas.eval()
+
     image_path = "../data/3.png"
-    input_image = cv2.imread(image_path)
-    input_image = cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB)
+    input_image = Image.open(image_path).convert("RGB")
 
-    transform = T.Compose([T.Resize(384), T.ToTensor(), T.Normalize(
-        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
-    input_batch = transform(input_image).unsqueeze(0)
+    transform = T.Compose([
+        T.Resize(384),
+        T.ToTensor(),
+        T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
 
-    # Perform depth estimation
+    input_tensor = transform(input_image).unsqueeze(0)
+
+    if input_tensor.shape[2] != 384 or input_tensor.shape[3] != 384:
+        input_tensor = torch.nn.functional.interpolate(
+            input_tensor, size=(384, 384), mode='bilinear', align_corners=False)
+
     with torch.no_grad():
-        prediction = midas(input_batch)
+        prediction = midas(input_tensor)
 
-    # Retrieve the depth map
     depth_map = prediction.squeeze().cpu().numpy()
     return depth_map
 
@@ -141,6 +148,7 @@ def main():
     axs[3].imshow(img)
     axs[3].set_title('Img')
     plt.show()
+    # tMap = transmittanceMap(img)
 
     # Display the results
     # cv2.imshow('Original Image', cv2.cvtColor((img * 255).astype(np.uint8), cv2.COLOR_BGR2RGB))
@@ -162,6 +170,12 @@ def main():
     # plt.imshow(depth_map, cmap='plasma')
     # plt.colorbar()
     # plt.show()
+    # plt.show()
+
+    depth_map = depthMap()
+    plt.imshow(depth_map, cmap="plasma")
+    plt.colorbar()
+    plt.show()
 
 
 main()
