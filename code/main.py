@@ -140,7 +140,6 @@ def depthMap():
     depth_map_resized = torch.nn.functional.interpolate(
         prediction.unsqueeze(1), size=(input_image.size[1], input_image.size[0]), mode='bilinear', align_corners=False
     ).squeeze().cpu().numpy()
-    print(f"shape {depth_map_resized.shape}")
     return depth_map_resized
 
 
