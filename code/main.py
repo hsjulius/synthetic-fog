@@ -37,7 +37,6 @@ def depthMap():
     input_image = Image.open(image_path).convert("RGB")
 
     transform = T.Compose([
-        T.Resize(384),
         T.ToTensor(),
         T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
@@ -51,8 +50,11 @@ def depthMap():
     with torch.no_grad():
         prediction = midas(input_tensor)
 
-    depth_map = prediction.squeeze().cpu().numpy()
-    return depth_map
+    depth_map_resized = torch.nn.functional.interpolate(
+        prediction.unsqueeze(1), size=(input_image.size[1], input_image.size[0]), mode='bilinear', align_corners=False
+    ).squeeze().cpu().numpy()
+    print(f"shape {depth_map_resized.shape}")
+    return depth_map_resized
 
 
 def transmittanceMap(img):
