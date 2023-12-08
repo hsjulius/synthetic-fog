@@ -90,6 +90,32 @@ def compute_surface_normals(image):
 
 
 def depthMap():
+    # midas = torch.hub.load("isl-org/MiDaS", "MiDaS")
+
+    # midas.eval()
+
+    # image_path = "../data/3.png"
+    # input_image = Image.open(image_path).convert("RGB")
+
+    # transform = T.Compose([
+    #     T.Resize(384),
+    #     T.ToTensor(),
+    #     T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    # ])
+    # # print(f"size of img  {input_image.shape}")
+
+    # input_tensor = transform(input_image).unsqueeze(0)
+    # print(f"size of tensor  {input_tensor.shape}")
+
+    # if input_tensor.shape[2] != 384 or input_tensor.shape[3] != 384:
+    #     input_tensor = torch.nn.functional.interpolate(
+    #         input_tensor, size=(384, 384), mode='bilinear', align_corners=False)
+
+    # with torch.no_grad():
+    #     prediction = midas(input_tensor)
+
+    # depth_map = prediction.squeeze().cpu().numpy()
+    # return depth_map
     midas = torch.hub.load("isl-org/MiDaS", "MiDaS")
 
     midas.eval()
@@ -98,7 +124,6 @@ def depthMap():
     input_image = Image.open(image_path).convert("RGB")
 
     transform = T.Compose([
-        T.Resize(384),
         T.ToTensor(),
         T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
@@ -112,8 +137,11 @@ def depthMap():
     with torch.no_grad():
         prediction = midas(input_tensor)
 
-    depth_map = prediction.squeeze().cpu().numpy()
-    return depth_map
+    depth_map_resized = torch.nn.functional.interpolate(
+        prediction.unsqueeze(1), size=(input_image.size[1], input_image.size[0]), mode='bilinear', align_corners=False
+    ).squeeze().cpu().numpy()
+    print(f"shape {depth_map_resized.shape}")
+    return depth_map_resized
 
 
 def transmittanceMap(depth, illumination, alpha=0.1):
@@ -219,7 +247,8 @@ def main():
     # plt.imshow(depth_map, cmap="plasma")
     # plt.colorbar()
     # plt.show()
-    distance_to_camera = 100.0
+    distance_to_camera = 100
+
     print(f"shapes {depth_map.shape} {img.shape} {illumination_map.shape}")
 
     # Add realistic fog with a specified intensity
@@ -227,6 +256,7 @@ def main():
 
 
     # illumination = illuminationEstimation(depth_map)
+    inv_map = (255-illumination_map)
     tMap = transmittanceMap(depth_map, illumination_map)
     fig, axs = plt.subplots(1, 5, figsize=(10, 5))
     axs[0].imshow(reflectionMap)
@@ -234,7 +264,7 @@ def main():
 
     axs[1].imshow(tMap,cmap='gray')
     axs[1].set_title('Transmittance')
-    inv_map = (255-illumination_map)
+    
     axs[2].imshow(inv_map,cmap='gray')
     axs[2].set_title('Illumination')
     # print(illumination_map)
