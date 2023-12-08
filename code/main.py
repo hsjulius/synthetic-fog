@@ -199,6 +199,24 @@ def add_realistic_fog(image, distance, fog_intensity=0.2):
     return foggy_image
 
 
+# def opticalLength(depth_map, k):
+#     optical_length_map = np.zeros_like(depth_map)
+
+#     for i in range(1, optical_length_map.shape[0]):
+#         optical_length_map[i, :] = optical_length_map[i -
+#                                                       1, :] + k(depth_map[i - 1, :])
+
+#     return optical_length_map
+
+
+# def k_fn(n):
+#     return 0.1 * n
+
+
+# def tMap(optical_length_map):
+#     return np.exp(-optical_length_map)
+
+
 def main():
     file = "3.png"
     img = cv2.imread(f"../data/{file}", )
@@ -279,6 +297,13 @@ def main():
     # axs[3].imshow(hi,cmap='gray')
     # axs[3].set_title('Img')
     plt.show()
+
+    # optical_length_map = opticalLength(depth_map, k_fn)
+    # t = tMap(optical_length_map)
+    # plt.imshow(t, cmap="viridis")
+    # plt.colorbar()
+    # plt.title("Transmittance Map")
+    # plt.show()
 
 
 main()
