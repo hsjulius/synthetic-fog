@@ -20,6 +20,7 @@ radiance attenuation ratio map = transmittance map
 volumetric scattering radiance map = volumetric map 
 """
 
+
 def generate_illumination_map(image):
     print(f"shape of img {image.shape}")
     grey_img = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) / 255.0
@@ -34,13 +35,14 @@ def generate_illumination_map(image):
     # print(f"shape of illumination_map {illumination_map.shape}")
     # illumination_map = np.vstack([illumination_map,illumination_map, illumination_map])#cv2.cvtColor(illumination_map, cv2.COLOR_GRAY2BGR)# / 255.0
     # stacked_matrix = np.clip(np.stack([illumination_map] * 3, axis=-1) * 255, 0, 255)
-    
-    # stacked_matrix = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR) 
+
+    # stacked_matrix = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
     # print(f"shape of illumination_map {stacked_matrix}")
     return illumination_map
 
+
 def illuminationEstimation(image, outdoor=1):
-    if outdoor: 
+    if outdoor:
         s = 2
         p_p = 0.5
         theta_sun = 1.2
@@ -49,14 +51,15 @@ def illuminationEstimation(image, outdoor=1):
         # illumination_sky = np.sum(L_sky_p * V_p_w_i * np.cos(theta_dwi))
         # illumination_P = illumination_sun + illumination_sky
 
-        # illumination_P = np.pi * L_sky_p 
+        # illumination_P = np.pi * L_sky_p
         illumination_P = L_sun * p_p * np.cos(theta_sun) + np.pi * L_sky * p_p
 
         avg_color = np.mean(image, axis=(0, 1))
         illumination = avg_color / np.mean(avg_color)
         return illumination
-    else: 
+    else:
         return 0
+
 
 def compute_surface_normals(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -90,32 +93,6 @@ def compute_surface_normals(image):
 
 
 def depthMap():
-    # midas = torch.hub.load("isl-org/MiDaS", "MiDaS")
-
-    # midas.eval()
-
-    # image_path = "../data/3.png"
-    # input_image = Image.open(image_path).convert("RGB")
-
-    # transform = T.Compose([
-    #     T.Resize(384),
-    #     T.ToTensor(),
-    #     T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    # ])
-    # # print(f"size of img  {input_image.shape}")
-
-    # input_tensor = transform(input_image).unsqueeze(0)
-    # print(f"size of tensor  {input_tensor.shape}")
-
-    # if input_tensor.shape[2] != 384 or input_tensor.shape[3] != 384:
-    #     input_tensor = torch.nn.functional.interpolate(
-    #         input_tensor, size=(384, 384), mode='bilinear', align_corners=False)
-
-    # with torch.no_grad():
-    #     prediction = midas(input_tensor)
-
-    # depth_map = prediction.squeeze().cpu().numpy()
-    # return depth_map
     midas = torch.hub.load("isl-org/MiDaS", "MiDaS")
 
     midas.eval()
@@ -154,7 +131,6 @@ def transmittanceMap(depth, illumination, alpha=0.1):
     normalized_depth = depth
     illumination = np.broadcast_to(illumination, normalized_depth.shape)
 
-
     # Compute transmittance
     transmittance = np.exp(-alpha * normalized_depth * illumination)
 
@@ -182,9 +158,11 @@ def transmittanceMap(depth, illumination, alpha=0.1):
     # transmissionMap = (transmission * 255).astype(np.uint8)
     # return transmissionMap
 
+
 def volumetricMap():
     print("not implemented yet")
-    
+
+
 def add_realistic_fog(image, distance, fog_intensity=0.2):
     # Generate a random noise image with the same size as the input image
     noise = np.random.normal(0, 1, image.shape).astype(np.uint8)
@@ -224,7 +202,6 @@ def main():
     reflectionMap = img
     illumination_map = generate_illumination_map(img)
 
-
     # tMap = transmittanceMap(img)
     # illumination = illuminationEstimation(img)
     # illumination = illuminationEstimation(img)
@@ -233,7 +210,6 @@ def main():
     # print(f"shape {illumination.shape} {img.shape}")
 
     # albedo_map = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) / illumination
-
 
     # tMap = np.sqrt(normals_x**2 + normals_y**2 + normals_z**2) * albedo_map
     # tMap = transmittanceMap(img)
@@ -247,30 +223,13 @@ def main():
     # plt.imshow(illumination, cmap='gray')
     # plt.show()
 
-    # depth_map = geometryEstimation()
-    # plt.imshow(depth_map, cmap="plasma")
-    # plt.colorbar()
-    # plt.show()
-    # print(torch.hub.list("isl-org/MiDaS"))
-
-    # depth_map = geometryEstimation()
-
-    # plt.imshow(depth_map, cmap='plasma')
-    # plt.colorbar()
-    # plt.show()
-    # plt.show()
-
     depth_map = depthMap()
-    # plt.imshow(depth_map, cmap="plasma")
-    # plt.colorbar()
-    # plt.show()
     distance_to_camera = 100
 
     print(f"shapes {depth_map.shape} {img.shape} {illumination_map.shape}")
 
     # Add realistic fog with a specified intensity
     foggy_image = add_realistic_fog(img, distance_to_camera, fog_intensity=0.2)
-
 
     # illumination = illuminationEstimation(depth_map)
     inv_map = (255-illumination_map)
@@ -279,19 +238,19 @@ def main():
     axs[0].imshow(reflectionMap)
     axs[0].set_title('Reflection')
 
-    axs[1].imshow(tMap,cmap='gray')
+    axs[1].imshow(tMap, cmap='gray')
     axs[1].set_title('Transmittance')
-    
-    axs[2].imshow(inv_map,cmap='gray')
+
+    axs[2].imshow(inv_map, cmap='gray')
     axs[2].set_title('Illumination')
     # print(illumination_map)
     # print(np.max(inv_map))
     # print(np.max(reflectionMap))
     # hi = np.multiply(inv_map, reflectionMap)
-    
-    axs[3].imshow(foggy_image,cmap='gray')
+
+    axs[3].imshow(foggy_image, cmap='gray')
     axs[3].set_title('Img')
-    axs[4].imshow(depth_map,cmap='gray')
+    axs[4].imshow(depth_map, cmap='gray')
     axs[4].set_title('depth')
     # axs[3].imshow(hi,cmap='gray')
     # axs[3].set_title('Img')
