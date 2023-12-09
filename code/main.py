@@ -92,13 +92,13 @@ def compute_surface_normals(image):
     # return img_gray_world
 
 
-def depthMap():
+def depthMap(image_name):
     midas = torch.hub.load("isl-org/MiDaS", "MiDaS")
 
     midas.eval()
 
-    image_path = "../data/bruh.png"
-    input_image = Image.open(image_path).convert("RGB")
+    image = f"../data/{image_name}"
+    input_image = Image.open(image).convert("RGB")
 
     transform = T.Compose([
         T.ToTensor(),
@@ -252,7 +252,7 @@ def main():
     reflectionMap = img
     illumination_map = generate_illumination_map(img)
 
-    depth_map = depthMap()
+    depth_map = depthMap(file)
     depth_grad_x = cv2.Sobel(depth_map, cv2.CV_64F, 1, 0, ksize=3)
     depth_grad_y = cv2.Sobel(depth_map, cv2.CV_64F, 0, 1, ksize=3)
 
@@ -263,7 +263,7 @@ def main():
     surface_normals = np.dstack((normal_x, normal_y, normal_z))
     surface_normals /= np.linalg.norm(surface_normals)
 
-    sun_direction = np.array([-1.0, 0.3, 0.0])
+    sun_direction = np.array([-1.0, -0.3, 0.0])
     sun_direction /= np.linalg.norm(sun_direction)
     height, width = depth_map.shape
     illumination_map = np.zeros((height, width))
