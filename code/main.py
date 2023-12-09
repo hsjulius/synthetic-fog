@@ -97,7 +97,7 @@ def depthMap():
 
     midas.eval()
 
-    image_path = "../data/3.png"
+    image_path = "../data/bruh.png"
     input_image = Image.open(image_path).convert("RGB")
 
     transform = T.Compose([
@@ -193,65 +193,118 @@ def add_realistic_fog(image, distance, fog_intensity=0.2):
 # def tMap(optical_length_map):
 #     return np.exp(-optical_length_map)
 
+sun_intensity = 1.0
+sky_intensity = 0.5
+brdf = 0.8
+visibility = 1.0
+
+
+def calculate_sunlight_contribution(cos_theta_sun):
+    return sun_intensity * brdf * visibility * cos_theta_sun
+
+
+def calculate_skylight_contribution(cos_theta):
+    integral_sky = np.sum(sky_intensity * brdf * visibility * cos_theta)
+    return integral_sky
+
+
+def estimate_illumination(surface_normal, sun_direction, incident_light_directions):
+    # mag_norm = np.linalg.norm(surface_normal)
+    # mag_sun = np.linalg.norm(sun_direction)
+    # dot_sun = np.dot(surface_normal, sun_direction)
+    cos_theta_sun = np.dot(surface_normal, sun_direction)
+    # cos_theta_sun = dot_sun / (mag_norm * mag_sun)
+
+    # Calculate sunlight contribution
+    I_sun = calculate_sunlight_contribution(cos_theta_sun)
+
+    # Calculate skylight contribution
+    # mag_in = np.linalg.norm(incident_light_directions)
+    # dot_sky = np.dot(surface_normal, incident_light_directions)
+    cos_theta_sky = np.dot(surface_normal, incident_light_directions)
+    # cos_theta_sky = dot_sky / (mag_norm * mag_in)
+    I_sky = calculate_skylight_contribution(cos_theta_sky)
+
+    # Combine sunlight and skylight
+    I = I_sun + I_sky
+
+    return I
+
+
+def generate_incident_light_directions(num_samples=1000):
+    phi = np.random.uniform(0, 2 * np.pi, num_samples)
+    theta = np.arccos(np.random.uniform(0, 1, num_samples))
+
+    x = np.sin(theta) * np.cos(phi)
+    y = np.sin(theta) * np.sin(phi)
+    z = np.cos(theta)
+
+    directions = np.vstack((x, y, z))
+    directions /= np.linalg.norm(directions)
+    return directions
+
 
 def main():
-    file = "3.png"
+    file = "bruh.png"
     img = cv2.imread(f"../data/{file}", )
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     reflectionMap = img
     illumination_map = generate_illumination_map(img)
 
-    # tMap = transmittanceMap(img)
-    # illumination = illuminationEstimation(img)
-    # illumination = illuminationEstimation(img)
-
-    # normals_x, normals_y, normals_z = compute_surface_normals(img)
-    # print(f"shape {illumination.shape} {img.shape}")
-
-    # albedo_map = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) / illumination
-
-    # tMap = np.sqrt(normals_x**2 + normals_y**2 + normals_z**2) * albedo_map
-    # tMap = transmittanceMap(img)
-
-    # Display the results
-    # cv2.imshow('Original Image', cv2.cvtColor((img * 255).astype(np.uint8), cv2.COLOR_BGR2RGB))
-    # cv2.imshow('Transmission Map', tMap)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-    # plt.imshow(tMap, cmap='gray')
-    # plt.imshow(illumination, cmap='gray')
-    # plt.show()
-
     depth_map = depthMap()
+    depth_grad_x = cv2.Sobel(depth_map, cv2.CV_64F, 1, 0, ksize=3)
+    depth_grad_y = cv2.Sobel(depth_map, cv2.CV_64F, 0, 1, ksize=3)
+
+    normal_x = -depth_grad_x / np.sqrt(depth_grad_x**2 + depth_grad_y**2 + 1)
+    normal_y = -depth_grad_y / np.sqrt(depth_grad_x**2 + depth_grad_y**2 + 1)
+    normal_z = 1 / np.sqrt(depth_grad_x**2 + depth_grad_y**2 + 1)
+
+    surface_normals = np.dstack((normal_x, normal_y, normal_z))
+    surface_normals /= np.linalg.norm(surface_normals)
+
+    sun_direction = np.array([-1.0, 0.3, 0.0])
+    sun_direction /= np.linalg.norm(sun_direction)
+    height, width = depth_map.shape
+    illumination_map = np.zeros((height, width))
+    incident_light_directions = generate_incident_light_directions()
+
+    for y in range(height):
+        for x in range(width):
+            surface_normal = surface_normals[y, x, :]
+            illumination_map[y, x] = estimate_illumination(
+                surface_normal, sun_direction, incident_light_directions)
+
+    # print("NaN values:", np.isnan(illumination_map).any())
+    # print("Inf values:", np.isinf(illumination_map).any())
     distance_to_camera = 100
 
     print(f"shapes {depth_map.shape} {img.shape} {illumination_map.shape}")
 
     # Add realistic fog with a specified intensity
-    foggy_image = add_realistic_fog(img, distance_to_camera, fog_intensity=0.2)
+    # foggy_image = add_realistic_fog(img, distance_to_camera, fog_intensity=0.2)
 
     # illumination = illuminationEstimation(depth_map)
-    inv_map = (255-illumination_map)
-    tMap = transmittanceMap(depth_map, illumination_map)
-    fig, axs = plt.subplots(1, 5, figsize=(10, 5))
+    # inv_map = (255-illumination_map)
+    # tMap = transmittanceMap(depth_map, illumination_map)
+    fig, axs = plt.subplots(1, 3, figsize=(10, 5))
     axs[0].imshow(reflectionMap)
     axs[0].set_title('Reflection')
 
-    axs[1].imshow(tMap, cmap='gray')
-    axs[1].set_title('Transmittance')
+    # axs[1].imshow(tMap, cmap='gray')
+    # axs[1].set_title('Transmittance')
 
-    axs[2].imshow(inv_map, cmap='gray')
-    axs[2].set_title('Illumination')
+    axs[1].imshow(illumination_map, cmap='gray')
+    axs[1].set_title('Illumination')
     # print(illumination_map)
     # print(np.max(inv_map))
     # print(np.max(reflectionMap))
     # hi = np.multiply(inv_map, reflectionMap)
 
-    axs[3].imshow(foggy_image, cmap='gray')
-    axs[3].set_title('Img')
-    axs[4].imshow(depth_map, cmap='gray')
-    axs[4].set_title('depth')
+    # axs[3].imshow(foggy_image, cmap='gray')
+    # axs[3].set_title('Img')
+    axs[2].imshow(depth_map, cmap='gray')
+    axs[2].set_title('depth')
     # axs[3].imshow(hi,cmap='gray')
     # axs[3].set_title('Img')
     plt.show()
