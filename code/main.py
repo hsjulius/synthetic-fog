@@ -69,7 +69,7 @@ def coord_to_idx(x, y, width):
 
 def transmittanceMap2(img, depth_map):
     # light_pos = np.array([.3,1.0])
-    light_idx = 0.50
+    light_idx = 0.6
     # surface_pt = np.array([.4,.6])
     alpha = 0.1
     delta = 0.7
@@ -106,8 +106,8 @@ def transmittanceMap2(img, depth_map):
             # surface_idx = coord_to_idx(surface_pt[0], surface_pt[1], width)
             # print(surface_pt)
             # const = np.exp(-((alpha+delta) * light_pos **2 - (alpha + delta) * surface_pt ** 2) )
-            const = np.exp(-((alpha+delta) * light_idx ** 2 -
-                           (alpha + delta) * surface_pt ** 2))
+            const = np.exp(-((alpha+delta) * (light_idx ** 2) -
+                           (alpha + delta) * (surface_pt ** 2)))
 
             img_coord = np.array([i / width, j / height])
             # img[i][j] /255#coord_to_idx(img_coord[0], img_coord[1], width)
@@ -116,8 +116,8 @@ def transmittanceMap2(img, depth_map):
             # print(f"img coord {img_coord}")
             # val2 = np.exp( - ((alpha+delta) * img_coord ** 2 - (alpha + delta) * surface_pt ** 2))
             print(f"surface idx {surface_pt} img idx {img_val}")
-            val2 = np.exp(- ((alpha+delta) * img_val ** 2 -
-                          (alpha + delta) * surface_pt ** 2))
+            val2 = np.exp(- ((alpha+delta) * (img_val ** 2) -
+                          (alpha + delta) * (surface_pt ** 2)))
             val = const * (val2)
             print(f"val {val}")
             tmap[i][j] = val
