@@ -98,7 +98,7 @@ def depthMap():
 
     midas.eval()
 
-    image_path = "../data/3.png"
+    image_path = "../data/bruh.png"
     input_image = Image.open(image_path).convert("RGB")
 
     transform = T.Compose([
@@ -191,6 +191,7 @@ def transmittanceMap2(img, depth_map):
     # depth_map /= np.max(depth_map)
     depth_max = np.max(depth_map)
     # print(depth_map)
+    # todo - get rid of these probably 
     dmap = depth_map.copy()
     dmap[dmap > depth_max-2000] /= 2
     dmap[dmap > depth_max-1000] /= 1.5
@@ -279,12 +280,11 @@ def volumetricMap():
 
 
 def main():
-    file = "3.png"
+    file = "bruh.png"
     img = cv2.imread(f"../data/{file}", )
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     reflectionMap = img
-
 
     illumination_map = illuminationEstimation(img)
     depth_map = depthMap()
@@ -301,9 +301,20 @@ def main():
     # tMap = transmittanceMap(depth_map, illumination_map,light_pos)
     tMap = transmittanceMap2(img,depth_map)
     # print(np.max(depth_map))
-    
-    fig, axs = plt.subplots(1, 4, figsize=(10, 5))
-    # print(tMap)
+    tmap3d = tMap[:, :, np.newaxis]
+    reflectionMap3d = reflectionMap / 255
+    depth_map3d = depth_map[:,:,np.newaxis]
+    # depth_map3d /= np.max(depth_map3d)
+    depth_max = np.max(depth_map3d)
+    # todo - get rid of these probably 
+    depth_map3d[depth_map3d > depth_max-2000] /= 2
+    depth_map3d[depth_map3d > depth_max-1000] /= 1.5
+    depth_map3d /= depth_max
+    print(f"{tmap3d} \n\n\n\n {reflectionMap3d} \n\n\n\n {depth_map3d}")
+    out =   reflectionMap3d * depth_map3d + tmap3d
+    out=np.clip(out,0,1)
+
+    fig, axs = plt.subplots(1, 5, figsize=(10, 5))
 
     axs[0].imshow(reflectionMap)
     axs[0].set_title('Reflection')
@@ -316,22 +327,22 @@ def main():
     axs[2].imshow(illumination_map, cmap='gray')
     axs[2].set_title('Illumination')
 
-
     # print(illumination_map)
     # print(np.max(inv_map))
     # print(f"types {reflectionMap.dtype} {tMap.dtype} {illumination_map.dtype} {depth_map.dtype}")
     # print(np.max(reflectionMap))
     # hi = np.multiply(inv_map, reflectionMap)
 
-    
     axs[3].imshow(depth_map, cmap='gray')
     axs[3].set_title('depth')
+
+    axs[4].imshow(out, cmap='gray')
+    axs[4].set_title('combo??')
     # axs[4].imshow(foggy_image, cmap='gray')
     # axs[4].set_title('Img')
     # axs[3].imshow(hi,cmap='gray')
     # axs[3].set_title('Img')
     plt.show()
-
 
     # optical_length_map = opticalLength(depth_map, k_fn)
     # t = tMap(optical_length_map)
@@ -340,8 +351,5 @@ def main():
     # plt.title("Transmittance Map")
     # plt.show()
 
-
 main()
-
-
 
