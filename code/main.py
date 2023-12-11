@@ -193,8 +193,8 @@ def transmittanceMap2(img, depth_map):
     # print(depth_map)
     # todo - get rid of these probably 
     dmap = depth_map.copy()
-    dmap[dmap > depth_max-2000] /= 2
-    dmap[dmap > depth_max-1000] /= 1.5
+    # dmap[dmap > depth_max-2000] /= 2
+    # dmap[dmap > depth_max-1000] /= 1.5
     dmap /= depth_max
     # print(dmap)
     # plt.imshow(dmap, cmap="gray")
@@ -205,7 +205,7 @@ def transmittanceMap2(img, depth_map):
     # plt.imshow(depth_map)
     # plt.show()
     for i in range(width):
-        print(f"beginning of i = {i}")
+        # print(f"beginning of i = {i}")
         for j in range(height):
             # print(f"beginning of j = {j}")
             surface_pt = dmap[i][j]
@@ -219,10 +219,10 @@ def transmittanceMap2(img, depth_map):
             # print(f"i : {i} j : {j} i / width {i / width} j // height {j / height} i / height {i/height} j / width {j/width} ")
             # print(f"img coord {img_coord}")
             # val2 = np.exp( - ((alpha+delta) * img_coord ** 2 - (alpha + delta) * surface_pt ** 2))
-            print(f"surface idx {surface_pt} img idx {img_val}")
+            # print(f"surface idx {surface_pt} img idx {img_val}")
             val2 = np.exp( - ((alpha+delta) * img_val ** 2 - (alpha + delta) * surface_pt ** 2))
             val =  const * (val2)
-            print(f"val {val}")
+            # print(f"val {val}")
             tmap[i][j] = val
 
     # for j in range(height):
@@ -255,8 +255,32 @@ def transmittanceMap2(img, depth_map):
     return tmap#np.ones(img.shape) * 255 
 
 
-def volumetricMap():
-    print("not implemented yet")
+def volumetricMap(img, depth_map):
+    alpha = 0.6
+    delta = 0.4
+    vmap = np.zeros((img.shape[0], img.shape[1]))
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    width,height = img.shape
+    
+    depth_max = np.max(depth_map)
+    # todo - get rid of these probably 
+    dmap = depth_map.copy()
+    # dmap[dmap > depth_max-2000] /= 2
+    # dmap[dmap > depth_max-1000] /= 1.5
+    dmap /= depth_max
+
+    for i in range(width):
+        for j in range(height):
+            x0 = dmap[i][j]
+            x = coord_to_idx(i / width, j / height, width) / width 
+            val = (np.exp(-delta * x ** 2 - alpha) - np.exp(-delta * x0 ** 2 - alpha)) - (x * np.exp(-delta * x ** 2 - alpha) - x0 * np.exp(-delta * x0 ** 2 - alpha)) * 50
+
+            # print(f"surface idx {surface_pt} img idx {img_val}")
+            # val2 = np.exp( - ((alpha+delta) * img_val ** 2 - (alpha + delta) * surface_pt ** 2))
+            # val =  const * (val2)
+            # print(f"val {val}")
+            vmap[i][j] = val
+    return vmap
 
 
 
@@ -300,6 +324,7 @@ def main():
 
     # tMap = transmittanceMap(depth_map, illumination_map,light_pos)
     tMap = transmittanceMap2(img,depth_map)
+    vMap = volumetricMap(img, depth_map)
     # print(np.max(depth_map))
     tmap3d = tMap[:, :, np.newaxis]
     reflectionMap3d = reflectionMap / 255
@@ -307,14 +332,14 @@ def main():
     # depth_map3d /= np.max(depth_map3d)
     depth_max = np.max(depth_map3d)
     # todo - get rid of these probably 
-    depth_map3d[depth_map3d > depth_max-2000] /= 2
-    depth_map3d[depth_map3d > depth_max-1000] /= 1.5
+    # depth_map3d[depth_map3d > depth_max-2000] /= 2
+    # depth_map3d[depth_map3d > depth_max-1000] /= 1.5
     depth_map3d /= depth_max
     print(f"{tmap3d} \n\n\n\n {reflectionMap3d} \n\n\n\n {depth_map3d}")
     out =   reflectionMap3d * depth_map3d + tmap3d
     out=np.clip(out,0,1)
 
-    fig, axs = plt.subplots(1, 5, figsize=(10, 5))
+    fig, axs = plt.subplots(1, 6, figsize=(10, 5))
 
     axs[0].imshow(reflectionMap)
     axs[0].set_title('Reflection')
@@ -336,8 +361,11 @@ def main():
     axs[3].imshow(depth_map, cmap='gray')
     axs[3].set_title('depth')
 
-    axs[4].imshow(out, cmap='gray')
-    axs[4].set_title('combo??')
+    axs[4].imshow(vMap, cmap='gray')
+    axs[4].set_title('vmap??')
+
+    axs[5].imshow(out, cmap='gray')
+    axs[5].set_title('combo??')
     # axs[4].imshow(foggy_image, cmap='gray')
     # axs[4].set_title('Img')
     # axs[3].imshow(hi,cmap='gray')
