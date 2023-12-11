@@ -173,27 +173,43 @@ def transmittanceMap(depth_map, illumination_map, light_position, scaling_factor
     return transmittance_map
 
 
+def coord_to_idx(x, y, width):
+    return y * width + x 
+
 def transmittanceMap2(img, depth_map):
-    light_pos = np.array([.3,1.0])
-    surface_pt = np.array([.4,.6])
+    # light_pos = np.array([.3,1.0])
+    light_idx = 0.4
+    # surface_pt = np.array([.4,.6])
     alpha = 5.6
     delta = 1.0
     tmap = np.zeros((img.shape[0], img.shape[1]))
     # print(((alpha + delta) * surface_pt ** 2).shape)
-    const = np.exp(-((alpha+delta) * light_pos **2 - (alpha + delta) * surface_pt ** 2) )
-    print(f"const {const}")
+    
+    # print(f"const {const}")
     img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     width,height = img.shape
+    depth_map /= np.max(depth_map)
+    print(f"depth map shape {depth_map.shape}")
+    # plt.imshow(depth_map)
+    # plt.show()
     for i in range(width):
         for j in range(height):
+            surface_pt = depth_map[i][j]
+            # surface_idx = coord_to_idx(surface_pt[0], surface_pt[1], width)
+            # print(surface_pt)
+            # const = np.exp(-((alpha+delta) * light_pos **2 - (alpha + delta) * surface_pt ** 2) )
+            const = np.exp(-((alpha+delta) * light_idx **2 - (alpha + delta) * surface_pt ** 2) )
 
             img_coord = np.array([i / width, j / height])
+            img_val = img[i][j] /255#coord_to_idx(img_coord[0], img_coord[1], width)
             # print(f"i : {i} j : {j} i / width {i / width} j // height {j / height} i / height {i/height} j / width {j/width} ")
             # print(f"img coord {img_coord}")
-            val2 = np.exp( - ((alpha+delta) * img_coord ** 2 - (alpha + delta) * surface_pt ** 2))
+            # val2 = np.exp( - ((alpha+delta) * img_coord ** 2 - (alpha + delta) * surface_pt ** 2))
+            print(f"surface idx {surface_pt} img idx {img_val}")
+            val2 = np.exp( - ((alpha+delta) * img_val ** 2 - (alpha + delta) * surface_pt ** 2))
             val =  const * (val2)
-            print(f"const {const} val2 {val2} val {val}")
-            tmap[i][j] = val[1] * val[0]
+            # print(f"const {const} val2 {val2} val {val}")
+            tmap[i][j] = val
     tmap = np.clip(tmap, 0,1)
     return tmap#np.ones(img.shape) * 255 
 
@@ -243,11 +259,11 @@ def main():
             illumination_map[y, x] = estimate_illumination(surface_normal, sun_direction)
 
     # tMap = transmittanceMap(depth_map, illumination_map,light_pos)
-    tMap = transmittanceMap2(img)
-    print(np.max(depth_map))
+    tMap = transmittanceMap2(img,depth_map)
+    # print(np.max(depth_map))
     
     fig, axs = plt.subplots(1, 4, figsize=(10, 5))
-    print(tMap)
+    # print(tMap)
 
     axs[0].imshow(reflectionMap)
     axs[0].set_title('Reflection')
