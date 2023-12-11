@@ -244,15 +244,39 @@ def generate_incident_light_directions(num_samples=1000):
     return directions
 
 
+def depthMap2(img_classes, darkness_factor=0.75):
+    h, w, _ = img_classes.shape
+    depth = np.ones((h, w))
+
+    depth[img_classes[:, :, 0] == 255] = 0.5  # buildings
+    depth[img_classes[:, :, 2] == 255] = 0  # sky
+
+    ground_pixels = np.all(img_classes == [0, 255, 0], axis=-1)
+    for i in range(h):
+        # ground — gets brighter as it gets nearer
+        depth[i, ground_pixels[i, :]] = (i / h) * darkness_factor
+
+    # deal with edges
+    depth[depth == 1] = 0.5
+
+    return depth
+
+
 def main():
     file = "bruh.png"
     img = cv2.imread(f"../data/{file}", )
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img_class = cv2.imread(f"../data/bruh_class.png", )
+    img_class = cv2.cvtColor(img_class, cv2.COLOR_BGR2RGB)
+
+    depth_map = depthMap2(img_class)
+    plt.imshow(depth_map, cmap='gray')
+    plt.show()
 
     reflectionMap = img
     illumination_map = generate_illumination_map(img)
 
-    depth_map = depthMap(file)
+    # depth_map = depthMap(file)
     depth_grad_x = cv2.Sobel(depth_map, cv2.CV_64F, 1, 0, ksize=3)
     depth_grad_y = cv2.Sobel(depth_map, cv2.CV_64F, 0, 1, ksize=3)
 
