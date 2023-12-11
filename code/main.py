@@ -67,92 +67,169 @@ def coord_to_idx(x, y, width):
     return y * width + x
 
 
-def transmittanceMap2(img, depth_map):
-    # light_pos = np.array([.3,1.0])
-    light_idx = 0.6
-    # surface_pt = np.array([.4,.6])
+def transmittanceMap2(img, depth_map, classified):
+    light_idx = -.6
     alpha = 0.1
     delta = 0.7
     tmap = np.zeros((img.shape[0], img.shape[1]))
-    # print(((alpha + delta) * surface_pt ** 2).shape)
 
-    # print(f"const {const}")
     img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     width, height = img.shape
-    # depth_map /= np.max(depth_map)
 
-    # depth_max = np.max(depth_map)
+    # for i in range(width):
+    #     print(f"beginning of i = {i}")
+    #     for j in range(height):
+    #         # print(f"beginning of j = {j}")
+    #         surface_pt = depth_map[i][j]
+    #         const = np.exp(-((alpha+delta) * light_idx ** 2 - (alpha + delta) * surface_pt ** 2))
 
-    # print(depth_map)
-    # todo - get rid of these probably
+    #         # img_coord = np.array([i / width, j / height])
+    #         img_val = coord_to_idx(i / width, j / height, width) / width
 
-    # dmap = depth_map.copy()
-    # dmap[dmap > depth_max-2000] /= 2
-    # dmap[dmap > depth_max-1000] /= 1.5
-    # dmap /= depth_max
+    #         val2 = np.exp( - ((alpha+delta) * img_val ** 2 - (alpha + delta) * surface_pt ** 2))
+    #         val =  const * val2
 
-    # print(dmap)
-    # plt.imshow(dmap, cmap="gray")
-    # plt.show()
-
-    # print(f"depth map shape {depth_map.shape}")
-    # plt.imshow(depth_map)
-    # plt.show()
-    for i in range(width):
-        print(f"beginning of i = {i}")
-        for j in range(height):
+    #         tmap[i][j] = val
+    #         print(f"val {val} surface pt {surface_pt} img val {img_val}")
+    for j in range(height):
+        # print(f"------------------------------beginning of j = {j}---------------------")
+        for i in range(width):
             # print(f"beginning of j = {j}")
             surface_pt = depth_map[i][j]
-            # surface_idx = coord_to_idx(surface_pt[0], surface_pt[1], width)
-            # print(surface_pt)
-            # const = np.exp(-((alpha+delta) * light_pos **2 - (alpha + delta) * surface_pt ** 2) )
-            const = np.exp(-((alpha+delta) * (light_idx ** 2) -
-                           (alpha + delta) * (surface_pt ** 2)))
+            const = np.exp(-((alpha + delta) * light_idx **
+                           2 - (alpha + delta) * surface_pt ** 2))
 
-            img_coord = np.array([i / width, j / height])
-            # img[i][j] /255#coord_to_idx(img_coord[0], img_coord[1], width)
-            img_val = coord_to_idx(i / width, j / height, width) / width
-            # print(f"i : {i} j : {j} i / width {i / width} j // height {j / height} i / height {i/height} j / width {j/width} ")
-            # print(f"img coord {img_coord}")
-            # val2 = np.exp( - ((alpha+delta) * img_coord ** 2 - (alpha + delta) * surface_pt ** 2))
-            print(f"surface idx {surface_pt} img idx {img_val}")
-            val2 = np.exp(- ((alpha+delta) * (img_val ** 2) -
-                          (alpha + delta) * (surface_pt ** 2)))
+            # img_coord = np.array([i / width, j / height])
+            # coord_to_idx(i / width, j / height, width) / width
+            img_val = img[i][j] / 255
+            # print(img_val)
+            val2 = np.exp(-((alpha+delta) * img_val ** 2 -
+                          (alpha + delta) * surface_pt ** 2))
+            # print(f"val2 inner { - ((alpha+delta) * img_val ** 2 - (alpha + delta) * surface_pt ** 2)} const inner {-(((alpha+delta) * light_idx ** 2 - (alpha + delta) * surface_pt ** 2))}")
+            # print(f"val2 {val2}")
             val = const * (val2)
-            print(f"val {val}")
-            tmap[i][j] = val
 
-    # for j in range(height):
-    #     # print(f"beginning of j = {j}")
-    #     for i in range(width):
-    #         # print(f"beginning of j = {j}")
-    #         surface_pt = depth_map[i][j] #/ depth_max
-    #         # surface_idx = coord_to_idx(surface_pt[0], surface_pt[1], width)
-    #         # print(surface_pt)
-    #         # const = np.exp(-((alpha+delta) * light_pos **2 - (alpha + delta) * surface_pt ** 2) )
-    #         const = np.exp(-((alpha+delta) * light_idx **2 - (alpha + delta) * surface_pt ** 2) )
-
-    #         img_coord = np.array([i / width, j / height])
-    #         img_val = coord_to_idx(i / width,j / height, width) / width #img[i][j] /255#coord_to_idx(img_coord[0], img_coord[1], width)
-    #         # print(f"i : {i} j : {j} i / width {i / width} j // height {j / height} i / height {i/height} j / width {j/width} ")
-    #         # print(f"img coord {img_coord}")
-    #         # val2 = np.exp( - ((alpha+delta) * img_coord ** 2 - (alpha + delta) * surface_pt ** 2))
-    #         # print(f"surface idx {surface_pt} img idx {img_val}")
-    #         val2 = np.exp( - ((alpha+delta) * img_val ** 2 - (alpha + delta) * surface_pt ** 2))
-    #         val =  const * (val2)
-    #         # print(f"const {const} val2 {val2} val {val}")
-
-    #         if (val > 1.0):
-    #             val = 1.0
-    #         # print(f"val {val}")
-    #         tmap[i][j] = val
+            tmap[i][j] = const / 2.5
+            # print(f"val {val} const {const} val2 {val2} surface pt {surface_pt} img val {img_val}")
 
     tmap = np.clip(tmap, 0, 1)
-    return tmap  # np.ones(img.shape) * 255
+
+    # tmap[classified[:,:,2] == 255] = np.average(tmap[classified[:,:,2] == 255])
+    # tmap[classified[:,:,0] == 255] = np.average(tmap[classified[:,:,0] == 255])
+    # # tmap[classified[:,:,0] == 255] = np.average(tmap[classified[:,:,0] == 255])
+    # # max_grad = np.max(tmap[classified[:,:,0] == 255])
+    # # min_grad = np.min(tmap[classified[:,:,0] == 255])
+    # ground_pixels = np.all(classified == [0,255,0], axis=-1)
+    # for i in range(width):
+    #     tmap[i, ground_pixels[i,:]] = i / width#(i/width) * 0.1
+    # tmap[classified[:,:,0] == 255] = tmap[classified[:,:,0] == 255]/2
+    # r, g, b = classified[:,:,0], classified[:,:,1], classified[:,:,2]
+    # buildings_mask = (r == 255)
+    # ground_mask = (g == 255)
+    # sky_mask = (b == 255)
+
+    # plt.imshow(tmap[buildings_mask])
+    # plt.show()
+    # plt.imshow(tmap[ground_mask])
+    # plt.show()
+    # plt.imshow(tmap[sky_mask])
+    # plt.show()
+    # tmap_at_buildings = np.where(buildings_mask, tmap, np.nan)
+    # tmap_at_ground = np.where(buildings_mask, tmap, np.nan)
+    # tmap_at_sky = np.where(buildings_mask, tmap, np.nan)
+    # tmap_at_ground = 1
+    # print(np.average(tmap[buildings_mask]))
+    # tmap[ground_mask] /= 1.5
+    # print(np.average(tmap[buildings_mask]))
+
+    # plt.imshow()
+    # plt.show()
+
+    # plt.imshow(np.where(ground_mask, tmap, np.nan))
+    # plt.show()
+
+    # plt.imshow(np.where(sky_mask, tmap, np.nan))
+    # plt.show()
+    # print(f"shapes {tmap.shape} {classified.shape}")
+
+    # print(classified[:,:,2])
+    return tmap
 
 
-def volumetricMap():
-    print("not implemented yet")
+def volumetricMap(img, depth_map):
+    # alpha = 0.6
+    # delta = 0.4
+    # vmap = np.zeros((img.shape[0], img.shape[1]))
+    # img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    # width,height = img.shape
+
+    # depth_max = np.max(depth_map)
+    # # todo - get rid of these probably
+    # dmap = depth_map.copy()
+    # # dmap[dmap > depth_max-2000] /= 2
+    # # dmap[dmap > depth_max-1000] /= 1.5
+    # dmap /= depth_max
+
+    # for i in range(width):
+    #     for j in range(height):
+    #         x0 = dmap[i][j]
+    #         x = img[i][j] / 255 #oord_to_idx(i / width, j / height, width) / width
+    #         val = (np.exp(-delta * x ** 2 - alpha) - np.exp(-delta * x0 ** 2 - alpha)) - (x * np.exp(-delta * x ** 2 - alpha) - x0 * np.exp(-delta * x0 ** 2 - alpha)) * 50
+
+    #         # print(f"surface idx {surface_pt} img idx {img_val}")
+    #         # val2 = np.exp( - ((alpha+delta) * img_val ** 2 - (alpha + delta) * surface_pt ** 2))
+    #         # val =  const * (val2)
+    #         # print(f"val {val}")
+    #         vmap[i][j] = val
+    # return vmap
+    light_idx = -.6
+    alpha = 0.1
+    delta = 0.7
+    tmap = np.zeros((img.shape[0], img.shape[1]))
+
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    width, height = img.shape
+
+    # for i in range(width):
+    #     print(f"beginning of i = {i}")
+    #     for j in range(height):
+    #         # print(f"beginning of j = {j}")
+    #         surface_pt = depth_map[i][j]
+    #         const = np.exp(-((alpha+delta) * light_idx ** 2 - (alpha + delta) * surface_pt ** 2))
+
+    #         # img_coord = np.array([i / width, j / height])
+    #         img_val = coord_to_idx(i / width, j / height, width) / width
+
+    #         val2 = np.exp( - ((alpha+delta) * img_val ** 2 - (alpha + delta) * surface_pt ** 2))
+    #         val =  const * val2
+
+    #         tmap[i][j] = val
+    #         print(f"val {val} surface pt {surface_pt} img val {img_val}")
+    for j in range(height):
+        # print(f"------------------------------beginning of j = {j}---------------------")
+        for i in range(width):
+            # print(f"beginning of j = {j}")
+            surface_pt = depth_map[i][j]
+            const = np.exp(-((alpha + delta) * light_idx **
+                           2 - (alpha + delta) * surface_pt ** 2))
+
+            # img_coord = np.array([i / width, j / height])
+            img_val = coord_to_idx(i / width, j / height,
+                                   width) / width  # img[i][j] / 255
+            # print(img_val)
+            val2 = np.exp(-((alpha+delta) * img_val ** 2 -
+                          (alpha + delta) * surface_pt ** 2))
+            # print(f"val2 inner { - ((alpha+delta) * img_val ** 2 - (alpha + delta) * surface_pt ** 2)} const inner {-(((alpha+delta) * light_idx ** 2 - (alpha + delta) * surface_pt ** 2))}")
+            # print(f"val2 {val2}")
+            val = const * (val2)
+
+            tmap[i][j] = val2
+
+            # print(f"val {val} const {const} val2 {val2} surface pt {surface_pt} img val {img_val}")
+    plt.imshow(tmap)
+    plt.show()
+    tmap = np.clip(tmap, 0, 1)
+    return tmap
 
 
 sun_intensity = 1.0
@@ -206,17 +283,23 @@ def generate_incident_light_directions(num_samples=1000):
     return directions
 
 
-def depthMap2(img_classes, darkness_factor=0.75):
+def depthMap2(img_classes, darkness_factor=.75):
     h, w, _ = img_classes.shape
     depth = np.ones((h, w))
 
-    depth[img_classes[:, :, 0] == 255] = 0.5  # buildings
+    depth[img_classes[:, :, 0] == 255] = 0.35  # buildings
     depth[img_classes[:, :, 2] == 255] = 0  # sky
+    # depth[img_classes[:, :, 1] == 255] = 0.2
 
     ground_pixels = np.all(img_classes == [0, 255, 0], axis=-1)
+    # green = depth[img_classes[:,:,1] == 255]
+    # print(green)
     for i in range(h):
         # ground — gets brighter as it gets nearer
         depth[i, ground_pixels[i, :]] = (i / h) * darkness_factor
+        # intensity = 0.5 #+ (i / h) #* (1.0 - 0.5) * darkness_factor
+        # depth[i, ground_pixels[i, :]] = intensity
+        # print(intensity)
 
     # deal with edges
     depth[depth == 1] = 0.5
@@ -232,44 +315,41 @@ def main():
     img_class = cv2.cvtColor(img_class, cv2.COLOR_BGR2RGB)
 
     depth_map = depthMap2(img_class)
-    plt.imshow(depth_map, cmap='gray')
-    plt.show()
+    # plt.imshow(depth_map, cmap='gray')
+    # plt.show()
 
     reflectionMap = img
 
-    # depth_map = depthMap(file)
+    # sun_direction = np.array([-1.0, -0.3, 0.0])
+    # surface_normals = compute_surface_normals(depth_map)
+    # height, width = depth_map.shape
+    # illumination_map = np.zeros((height, width))
+    # incident_light_directions = generate_incident_light_directions()
 
-    # Define your lighting parameters
-    # neg x = from left, neg y = from top
-    sun_direction = np.array([-1.0, -0.3, 0.0])
-    surface_normals = compute_surface_normals(depth_map)
-    height, width = depth_map.shape
-    illumination_map = np.zeros((height, width))
-    incident_light_directions = generate_incident_light_directions()
-
-    for y in range(height):
-        for x in range(width):
-            surface_normal = surface_normals[y, x, :]
-            illumination_map[y, x] = estimate_illumination(
-                surface_normal, sun_direction, incident_light_directions)
+    # for y in range(height):
+    #     for x in range(width):
+    #         surface_normal = surface_normals[y, x, :]
+    #         illumination_map[y, x] = estimate_illumination(
+    #             surface_normal, sun_direction, incident_light_directions)
 
     # tMap = transmittanceMap(depth_map, illumination_map,light_pos)
-    tMap = transmittanceMap2(img, depth_map)
+    tMap = transmittanceMap2(img, depth_map, img_class)
+
+    # plt.imshow(tMap, cmap='gray')
+    # plt.show()
+    # cv2.imwrite(f"../results/out.png", tMap)
+
+    vMap = volumetricMap(img, depth_map)
     # print(np.max(depth_map))
     tmap3d = tMap[:, :, np.newaxis]
+    vmap3d = vMap[:, :, np.newaxis]
     reflectionMap3d = reflectionMap / 255
     depth_map3d = depth_map[:, :, np.newaxis]
-    # depth_map3d /= np.max(depth_map3d)
-    depth_max = np.max(depth_map3d)
-    # todo - get rid of these probably
-    depth_map3d[depth_map3d > depth_max-2000] /= 2
-    depth_map3d[depth_map3d > depth_max-1000] /= 1.5
-    depth_map3d /= depth_max
-    print(f"{tmap3d} \n\n\n\n {reflectionMap3d} \n\n\n\n {depth_map3d}")
-    out = reflectionMap3d * depth_map3d + tmap3d
+
+    out = ((reflectionMap3d) * (tmap3d) + (vmap3d / 2))  # * reflectionMap3d
     out = np.clip(out, 0, 1)
 
-    fig, axs = plt.subplots(1, 4, figsize=(10, 5))
+    fig, axs = plt.subplots(1, 5, figsize=(10, 5))
 
     axs[0].imshow(reflectionMap)
     axs[0].set_title('Reflection')
@@ -291,8 +371,11 @@ def main():
     axs[2].imshow(depth_map, cmap='gray')
     axs[2].set_title('depth')
 
-    axs[3].imshow(out, cmap='gray')
-    axs[3].set_title('combo??')
+    axs[3].imshow(vMap, cmap='gray')
+    axs[3].set_title('vmap??')
+
+    axs[4].imshow(out, cmap='gray')
+    axs[4].set_title('combo??')
     # axs[4].imshow(foggy_image, cmap='gray')
     # axs[4].set_title('Img')
     # axs[3].imshow(hi,cmap='gray')
