@@ -23,64 +23,6 @@ volumetric scattering radiance map = volumetric map
 """
 
 
-
-# Define your lighting parameters
-# neg x = from left, neg y = from top
-sun_direction = np.array([-1.0, -0.3, 0.0])
-sun_direction /= np.linalg.norm(sun_direction)  # Normalize to unit vector
-sun_intensity = 1.0
-sky_intensity = 0.5
-brdf = 0.8
-visibility = 1.0
-
-# Function to calculate sunlight contribution
-def calculate_sunlight_contribution(surface_normal, cos_theta_sun):
-    return sun_intensity * brdf * visibility * cos_theta_sun
-
-# Function to calculate skylight contribution
-def calculate_skylight_contribution(surface_normal, cos_theta):
-    # Integration over hemisphere (simplified for illustration)
-    integral_sky = np.sum(sky_intensity * brdf * visibility * cos_theta)
-    return integral_sky
-
-
-
-
-
-# Function to estimate illumination for a single point
-def estimate_illumination(surface_normal, sun_direction):
-    cos_theta_sun = np.dot(surface_normal, sun_direction)
-    
-    # Calculate sunlight contribution
-    I_sun = calculate_sunlight_contribution(surface_normal, cos_theta_sun)
-    
-    # Calculate skylight contribution
-    incident_light_directions = np.array([1.0, 0.5, 0.0])
-    # print(f"shape of surface normal {surface_normal.shape} {incident_light_directions.shape}")
-    cos_theta = np.dot(surface_normal, incident_light_directions)  # Replace with actual incident light directions
-    I_sky = calculate_skylight_contribution(surface_normal, cos_theta)
-    
-    # Combine sunlight and skylight
-    I = I_sun + I_sky
-    
-    return I
-
-
-def generate_illumination_map(image):
-    print(f"shape of img {image.shape}")
-    grey_img = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) / 255.0
-    gradient_x = cv2.Sobel(grey_img, cv2.CV_64F, 1, 0, ksize=3)
-    gradient_y = cv2.Sobel(grey_img, cv2.CV_64F, 0, 1, ksize=3)
-    gradient_magnitude = np.sqrt(gradient_x**2 + gradient_y**2)
-    enhanced_image = cv2.equalizeHist(np.uint8(grey_img * 255)) / 255.0
-    illumination_map = gradient_magnitude * enhanced_image
-    return illumination_map
-
-
-def illuminationEstimation(image):
-    return 0
-
-
 def compute_surface_normals(depth_map):
     depth_grad_x = cv2.Sobel(depth_map, cv2.CV_64F, 1, 0, ksize=3)
     depth_grad_y = cv2.Sobel(depth_map, cv2.CV_64F, 0, 1, ksize=3)
@@ -93,13 +35,13 @@ def compute_surface_normals(depth_map):
     return surface_normals
 
 
-def depthMap():
+def depthMap(image_name):
     midas = torch.hub.load("isl-org/MiDaS", "MiDaS")
 
     midas.eval()
 
-    image_path = "../data/bruh.png"
-    input_image = Image.open(image_path).convert("RGB")
+    image = f"../data/{image_name}"
+    input_image = Image.open(image).convert("RGB")
 
     transform = T.Compose([
         T.ToTensor(),
@@ -120,61 +62,10 @@ def depthMap():
     ).squeeze().cpu().numpy()
     return depth_map_resized
 
-# def calculate_optical_length(x0, xl, x):
-#     # Calculate optical lengths
-#     optical_length_x0_x = np.linalg.norm(x0 - x)
-#     optical_length_xl_x0 = np.linalg.norm(xl - x0)
-    
-#     return optical_length_x0_x, optical_length_xl_x0
-
-# def optical_thickness_integrand(t, x_prime, x):
-#     # Define the integrand of the optical thickness equation
-#     alpha = 0.1#absorption_coefficient(x_prime)
-#     delta = 0.05#scattering_coefficient(x_prime)
-#     return alpha + delta
-
-# def calculate_optical_thickness(x_prime, x):
-#     # Numerically integrate the optical thickness equation
-#     result, _ = quad(optical_thickness_integrand, x_prime, x, args=(x_prime, x))
-#     return result
-
-
-def transmittanceMap(depth_map, illumination_map, light_position, scaling_factor=0.1):
-    transmittance_map = np.zeros_like(depth_map, dtype=np.float32)
-
-    # Normalize depth map
-    normalized_depth_map = (depth_map - np.min(depth_map)) / (np.max(depth_map) - np.min(depth_map))
-
-    # Invert depth map
-    inverted_depth_map = 1 - normalized_depth_map
-
-    # Convert illumination map to float
-    illumination_map = illumination_map.astype(np.float32)
-
-    # Iterate through each pixel in the image
-    height, width = depth_map.shape
-    for y in range(height):
-        for x in range(width):
-            x0 = np.array([x, y])
-            xl = light_position
-
-            # Calculate optical thickness using numerical integration
-            optical_thickness = calculate_optical_thickness(xl[0], x0[0])
-
-            # Adjust transmittance using a scaling factor
-            transmittance = np.exp(-scaling_factor * optical_thickness)
-
-            # Apply transmittance to the pixel based on illumination
-            transmittance_map[y, x] = transmittance * illumination_map[y, x]
-
-    # Normalize transmittance map
-    transmittance_map = (transmittance_map - np.min(transmittance_map)) / (np.max(transmittance_map) - np.min(transmittance_map))
-
-    return transmittance_map
-
 
 def coord_to_idx(x, y, width):
-    return y * width + x 
+    return y * width + x
+
 
 def transmittanceMap2(img, depth_map):
     # light_pos = np.array([.3,1.0])
@@ -184,22 +75,25 @@ def transmittanceMap2(img, depth_map):
     delta = 0.7
     tmap = np.zeros((img.shape[0], img.shape[1]))
     # print(((alpha + delta) * surface_pt ** 2).shape)
-    
+
     # print(f"const {const}")
     img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    width,height = img.shape
+    width, height = img.shape
     # depth_map /= np.max(depth_map)
-    depth_max = np.max(depth_map)
+
+    # depth_max = np.max(depth_map)
+
     # print(depth_map)
-    # todo - get rid of these probably 
-    dmap = depth_map.copy()
+    # todo - get rid of these probably
+
+    # dmap = depth_map.copy()
     # dmap[dmap > depth_max-2000] /= 2
     # dmap[dmap > depth_max-1000] /= 1.5
-    dmap /= depth_max
+    # dmap /= depth_max
+
     # print(dmap)
     # plt.imshow(dmap, cmap="gray")
     # plt.show()
-
 
     # print(f"depth map shape {depth_map.shape}")
     # plt.imshow(depth_map)
@@ -208,14 +102,16 @@ def transmittanceMap2(img, depth_map):
         # print(f"beginning of i = {i}")
         for j in range(height):
             # print(f"beginning of j = {j}")
-            surface_pt = dmap[i][j]
+            surface_pt = depth_map[i][j]
             # surface_idx = coord_to_idx(surface_pt[0], surface_pt[1], width)
             # print(surface_pt)
             # const = np.exp(-((alpha+delta) * light_pos **2 - (alpha + delta) * surface_pt ** 2) )
-            const = np.exp(-((alpha+delta) * light_idx **2 - (alpha + delta) * surface_pt ** 2) )
+            const = np.exp(-((alpha+delta) * light_idx ** 2 -
+                           (alpha + delta) * surface_pt ** 2))
 
             img_coord = np.array([i / width, j / height])
-            img_val = coord_to_idx(i / width,j / height, width) / width#img[i][j] /255#coord_to_idx(img_coord[0], img_coord[1], width)
+            # img[i][j] /255#coord_to_idx(img_coord[0], img_coord[1], width)
+            img_val = coord_to_idx(i / width, j / height, width) / width
             # print(f"i : {i} j : {j} i / width {i / width} j // height {j / height} i / height {i/height} j / width {j/width} ")
             # print(f"img coord {img_coord}")
             # val2 = np.exp( - ((alpha+delta) * img_coord ** 2 - (alpha + delta) * surface_pt ** 2))
@@ -244,15 +140,14 @@ def transmittanceMap2(img, depth_map):
     #         val2 = np.exp( - ((alpha+delta) * img_val ** 2 - (alpha + delta) * surface_pt ** 2))
     #         val =  const * (val2)
     #         # print(f"const {const} val2 {val2} val {val}")
-            
-            
+
     #         if (val > 1.0):
     #             val = 1.0
     #         # print(f"val {val}")
     #         tmap[i][j] = val
-   
-    tmap = np.clip(tmap, 0,1)
-    return tmap#np.ones(img.shape) * 255 
+
+    tmap = np.clip(tmap, 0, 1)
+    return tmap  # np.ones(img.shape) * 255
 
 
 def volumetricMap(img, depth_map):
@@ -283,63 +178,125 @@ def volumetricMap(img, depth_map):
     return vmap
 
 
+sun_intensity = 1.0
+sky_intensity = 0.5
+brdf = 0.8
+visibility = 1.0
 
 
-# def opticalLength(depth_map, k):
-#     optical_length_map = np.zeros_like(depth_map)
-
-#     for i in range(1, optical_length_map.shape[0]):
-#         optical_length_map[i, :] = optical_length_map[i -
-#                                                       1, :] + k(depth_map[i - 1, :])
-
-#     return optical_length_map
+def calculate_sunlight_contribution(cos_theta_sun):
+    return sun_intensity * brdf * visibility * cos_theta_sun
 
 
-# def k_fn(n):
-#     return 0.1 * n
+def calculate_skylight_contribution(cos_theta):
+    integral_sky = np.sum(sky_intensity * brdf * visibility * cos_theta)
+    return integral_sky
 
 
-# def tMap(optical_length_map):
-#     return np.exp(-optical_length_map)
+def estimate_illumination(surface_normal, sun_direction, incident_light_directions):
+    # mag_norm = np.linalg.norm(surface_normal)
+    # mag_sun = np.linalg.norm(sun_direction)
+    # dot_sun = np.dot(surface_normal, sun_direction)
+    cos_theta_sun = np.dot(surface_normal, sun_direction)
+    # cos_theta_sun = dot_sun / (mag_norm * mag_sun)
+
+    # Calculate sunlight contribution
+    I_sun = calculate_sunlight_contribution(cos_theta_sun)
+
+    # Calculate skylight contribution
+    # mag_in = np.linalg.norm(incident_light_directions)
+    # dot_sky = np.dot(surface_normal, incident_light_directions)
+    cos_theta_sky = np.dot(surface_normal, incident_light_directions)
+    # cos_theta_sky = dot_sky / (mag_norm * mag_in)
+    I_sky = calculate_skylight_contribution(cos_theta_sky)
+
+    # Combine sunlight and skylight
+    I = I_sun + I_sky
+
+    return I
+
+
+def generate_incident_light_directions(num_samples=1000):
+    phi = np.random.uniform(0, 2 * np.pi, num_samples)
+    theta = np.arccos(np.random.uniform(0, 1, num_samples))
+
+    x = np.sin(theta) * np.cos(phi)
+    y = np.sin(theta) * np.sin(phi)
+    z = np.cos(theta)
+
+    directions = np.vstack((x, y, z))
+    directions /= np.linalg.norm(directions)
+    return directions
+
+
+def depthMap2(img_classes, darkness_factor=0.75):
+    h, w, _ = img_classes.shape
+    depth = np.ones((h, w))
+
+    depth[img_classes[:, :, 0] == 255] = 0.5  # buildings
+    depth[img_classes[:, :, 2] == 255] = 0  # sky
+
+    ground_pixels = np.all(img_classes == [0, 255, 0], axis=-1)
+    for i in range(h):
+        # ground — gets brighter as it gets nearer
+        depth[i, ground_pixels[i, :]] = (i / h) * darkness_factor
+
+    # deal with edges
+    depth[depth == 1] = 0.5
+
+    return depth
 
 
 def main():
     file = "bruh.png"
     img = cv2.imread(f"../data/{file}", )
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img_class = cv2.imread(f"../data/bruh_class.png", )
+    img_class = cv2.cvtColor(img_class, cv2.COLOR_BGR2RGB)
+
+    depth_map = depthMap2(img_class)
+    plt.imshow(depth_map, cmap='gray')
+    plt.show()
 
     reflectionMap = img
 
-    illumination_map = illuminationEstimation(img)
-    depth_map = depthMap()
-    light_pos = np.array([1.0, 0.5])
+    # depth_map = depthMap(file)
+
+    # Define your lighting parameters
+    # neg x = from left, neg y = from top
+    sun_direction = np.array([-1.0, -0.3, 0.0])
     surface_normals = compute_surface_normals(depth_map)
     height, width = depth_map.shape
     illumination_map = np.zeros((height, width))
+    incident_light_directions = generate_incident_light_directions()
 
     for y in range(height):
         for x in range(width):
             surface_normal = surface_normals[y, x, :]
-            illumination_map[y, x] = estimate_illumination(surface_normal, sun_direction)
+            illumination_map[y, x] = estimate_illumination(
+                surface_normal, sun_direction, incident_light_directions)
 
     # tMap = transmittanceMap(depth_map, illumination_map,light_pos)
     tMap = transmittanceMap2(img,depth_map)
     vMap = volumetricMap(img, depth_map)
     # print(np.max(depth_map))
     tmap3d = tMap[:, :, np.newaxis]
+    vmap3d = vMap[:, :, np.newaxis]
     reflectionMap3d = reflectionMap / 255
-    depth_map3d = depth_map[:,:,np.newaxis]
+    depth_map3d = depth_map[:, :, np.newaxis]
+    
     # depth_map3d /= np.max(depth_map3d)
-    depth_max = np.max(depth_map3d)
-    # todo - get rid of these probably 
+    # depth_max = np.max(depth_map3d)
+    # todo - get rid of these probably
     # depth_map3d[depth_map3d > depth_max-2000] /= 2
     # depth_map3d[depth_map3d > depth_max-1000] /= 1.5
-    depth_map3d /= depth_max
-    print(f"{tmap3d} \n\n\n\n {reflectionMap3d} \n\n\n\n {depth_map3d}")
-    out =   reflectionMap3d * depth_map3d + tmap3d
-    out=np.clip(out,0,1)
+    # depth_map3d /= depth_max
+    print(f"tmap {tmap3d} \n\n\n\n rmap {reflectionMap3d} \n\n\n\n depth {depth_map3d} \n\n\n vmap {vmap3d}")
 
-    fig, axs = plt.subplots(1, 6, figsize=(10, 5))
+    out = reflectionMap3d * depth_map3d + tmap3d#+ vmap3d * reflectionMap3d
+    out = np.clip(out, 0, 1)
+
+    fig, axs = plt.subplots(1, 5, figsize=(10, 5))
 
     axs[0].imshow(reflectionMap)
     axs[0].set_title('Reflection')
@@ -349,8 +306,8 @@ def main():
 
     # axs[2].imshow(illumination_map, cmap='gray')
     # axs[2].set_title('')
-    axs[2].imshow(illumination_map, cmap='gray')
-    axs[2].set_title('Illumination')
+    # axs[2].imshow(illumination_map, cmap='gray')
+    # axs[2].set_title('Illumination')
 
     # print(illumination_map)
     # print(np.max(inv_map))
@@ -358,14 +315,14 @@ def main():
     # print(np.max(reflectionMap))
     # hi = np.multiply(inv_map, reflectionMap)
 
-    axs[3].imshow(depth_map, cmap='gray')
-    axs[3].set_title('depth')
+    axs[2].imshow(depth_map, cmap='gray')
+    axs[2].set_title('depth')
 
-    axs[4].imshow(vMap, cmap='gray')
-    axs[4].set_title('vmap??')
+    axs[3].imshow(vMap, cmap='gray')
+    axs[3].set_title('vmap??')
 
-    axs[5].imshow(out, cmap='gray')
-    axs[5].set_title('combo??')
+    axs[4].imshow(out, cmap='gray')
+    axs[4].set_title('combo??')
     # axs[4].imshow(foggy_image, cmap='gray')
     # axs[4].set_title('Img')
     # axs[3].imshow(hi,cmap='gray')
@@ -379,5 +336,5 @@ def main():
     # plt.title("Transmittance Map")
     # plt.show()
 
-main()
 
+main()
