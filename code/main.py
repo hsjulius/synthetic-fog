@@ -120,23 +120,23 @@ def depthMap():
     ).squeeze().cpu().numpy()
     return depth_map_resized
 
-def calculate_optical_length(x0, xl, x):
-    # Calculate optical lengths
-    optical_length_x0_x = np.linalg.norm(x0 - x)
-    optical_length_xl_x0 = np.linalg.norm(xl - x0)
+# def calculate_optical_length(x0, xl, x):
+#     # Calculate optical lengths
+#     optical_length_x0_x = np.linalg.norm(x0 - x)
+#     optical_length_xl_x0 = np.linalg.norm(xl - x0)
     
-    return optical_length_x0_x, optical_length_xl_x0
+#     return optical_length_x0_x, optical_length_xl_x0
 
-def optical_thickness_integrand(t, x_prime, x):
-    # Define the integrand of the optical thickness equation
-    alpha = 0.1#absorption_coefficient(x_prime)
-    delta = 0.05#scattering_coefficient(x_prime)
-    return alpha + delta
+# def optical_thickness_integrand(t, x_prime, x):
+#     # Define the integrand of the optical thickness equation
+#     alpha = 0.1#absorption_coefficient(x_prime)
+#     delta = 0.05#scattering_coefficient(x_prime)
+#     return alpha + delta
 
-def calculate_optical_thickness(x_prime, x):
-    # Numerically integrate the optical thickness equation
-    result, _ = quad(optical_thickness_integrand, x_prime, x, args=(x_prime, x))
-    return result
+# def calculate_optical_thickness(x_prime, x):
+#     # Numerically integrate the optical thickness equation
+#     result, _ = quad(optical_thickness_integrand, x_prime, x, args=(x_prime, x))
+#     return result
 
 
 def transmittanceMap(depth_map, illumination_map, light_position, scaling_factor=0.1):
@@ -171,6 +171,31 @@ def transmittanceMap(depth_map, illumination_map, light_position, scaling_factor
     transmittance_map = (transmittance_map - np.min(transmittance_map)) / (np.max(transmittance_map) - np.min(transmittance_map))
 
     return transmittance_map
+
+
+def transmittanceMap2(img, depth_map):
+    light_pos = np.array([.3,1.0])
+    surface_pt = np.array([.4,.6])
+    alpha = 5.6
+    delta = 1.0
+    tmap = np.zeros((img.shape[0], img.shape[1]))
+    # print(((alpha + delta) * surface_pt ** 2).shape)
+    const = np.exp(-((alpha+delta) * light_pos **2 - (alpha + delta) * surface_pt ** 2) )
+    print(f"const {const}")
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    width,height = img.shape
+    for i in range(width):
+        for j in range(height):
+
+            img_coord = np.array([i / width, j / height])
+            # print(f"i : {i} j : {j} i / width {i / width} j // height {j / height} i / height {i/height} j / width {j/width} ")
+            # print(f"img coord {img_coord}")
+            val2 = np.exp( - ((alpha+delta) * img_coord ** 2 - (alpha + delta) * surface_pt ** 2))
+            val =  const * (val2)
+            print(f"const {const} val2 {val2} val {val}")
+            tmap[i][j] = val[1] * val[0]
+    tmap = np.clip(tmap, 0,1)
+    return tmap#np.ones(img.shape) * 255 
 
 
 def volumetricMap():
@@ -217,10 +242,13 @@ def main():
             surface_normal = surface_normals[y, x, :]
             illumination_map[y, x] = estimate_illumination(surface_normal, sun_direction)
 
-    tMap = transmittanceMap(depth_map, illumination_map,light_pos)
+    # tMap = transmittanceMap(depth_map, illumination_map,light_pos)
+    tMap = transmittanceMap2(img)
     print(np.max(depth_map))
     
-    fig, axs = plt.subplots(1, 5, figsize=(10, 5))
+    fig, axs = plt.subplots(1, 4, figsize=(10, 5))
+    print(tMap)
+
     axs[0].imshow(reflectionMap)
     axs[0].set_title('Reflection')
 
@@ -235,18 +263,19 @@ def main():
 
     # print(illumination_map)
     # print(np.max(inv_map))
-    print(f"types {reflectionMap.dtype} {tMap.dtype} {illumination_map.dtype} {depth_map.dtype}")
+    # print(f"types {reflectionMap.dtype} {tMap.dtype} {illumination_map.dtype} {depth_map.dtype}")
     # print(np.max(reflectionMap))
     # hi = np.multiply(inv_map, reflectionMap)
 
     
     axs[3].imshow(depth_map, cmap='gray')
     axs[3].set_title('depth')
-    axs[4].imshow(foggy_image, cmap='gray')
-    axs[4].set_title('Img')
+    # axs[4].imshow(foggy_image, cmap='gray')
+    # axs[4].set_title('Img')
     # axs[3].imshow(hi,cmap='gray')
     # axs[3].set_title('Img')
     plt.show()
+
 
     # optical_length_map = opticalLength(depth_map, k_fn)
     # t = tMap(optical_length_map)
@@ -257,3 +286,6 @@ def main():
 
 
 main()
+
+
+
