@@ -9,6 +9,8 @@ import cv2
 import torch
 import torchvision.transforms as T
 from PIL import Image
+from scipy.integrate import quad
+
 
 """
 We define the input photograph, the radiance attenuation
@@ -21,75 +23,16 @@ volumetric scattering radiance map = volumetric map
 """
 
 
-def generate_illumination_map(image):
-    print(f"shape of img {image.shape}")
-    grey_img = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) / 255.0
-    # print(f"shape of gradient_y {gradient_y.shape}")
-    gradient_x = cv2.Sobel(grey_img, cv2.CV_64F, 1, 0, ksize=3)
-    gradient_y = cv2.Sobel(grey_img, cv2.CV_64F, 0, 1, ksize=3)
-    # print(f"shape of gradient_y {gradient_y.shape}")
-    gradient_magnitude = np.sqrt(gradient_x**2 + gradient_y**2)
-    enhanced_image = cv2.equalizeHist(np.uint8(grey_img * 255)) / 255.0
-    # print(f"shape of enhanced_image {enhanced_image.shape}")
-    illumination_map = gradient_magnitude * enhanced_image
-    # print(f"shape of illumination_map {illumination_map.shape}")
-    # illumination_map = np.vstack([illumination_map,illumination_map, illumination_map])#cv2.cvtColor(illumination_map, cv2.COLOR_GRAY2BGR)# / 255.0
-    # stacked_matrix = np.clip(np.stack([illumination_map] * 3, axis=-1) * 255, 0, 255)
+def compute_surface_normals(depth_map):
+    depth_grad_x = cv2.Sobel(depth_map, cv2.CV_64F, 1, 0, ksize=3)
+    depth_grad_y = cv2.Sobel(depth_map, cv2.CV_64F, 0, 1, ksize=3)
 
-    # stacked_matrix = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-    # print(f"shape of illumination_map {stacked_matrix}")
-    return illumination_map
+    normal_x = -depth_grad_x / np.sqrt(depth_grad_x**2 + depth_grad_y**2 + 1)
+    normal_y = -depth_grad_y / np.sqrt(depth_grad_x**2 + depth_grad_y**2 + 1)
+    normal_z = 1 / np.sqrt(depth_grad_x**2 + depth_grad_y**2 + 1)
 
-
-def illuminationEstimation(image, outdoor=1):
-    if outdoor:
-        s = 2
-        p_p = 0.5
-        theta_sun = 1.2
-        # L_sky = s * (illumination_P / np.pi * p_p)
-        # illumination_sun = L_sun_p * V_p_w_sun * np.cos(theta_sun)
-        # illumination_sky = np.sum(L_sky_p * V_p_w_i * np.cos(theta_dwi))
-        # illumination_P = illumination_sun + illumination_sky
-
-        # illumination_P = np.pi * L_sky_p
-        illumination_P = L_sun * p_p * np.cos(theta_sun) + np.pi * L_sky * p_p
-
-        avg_color = np.mean(image, axis=(0, 1))
-        illumination = avg_color / np.mean(avg_color)
-        return illumination
-    else:
-        return 0
-
-
-def compute_surface_normals(image):
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    gradient_x = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
-    gradient_y = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
-    magnitude = np.sqrt(gradient_x**2 + gradient_y**2)
-    normals_x = gradient_x / magnitude
-    normals_y = gradient_y / magnitude
-    normals_z = np.ones_like(magnitude)
-    return normals_x, normals_y, normals_z
-    # # Convert the image to floating point representation
-    # img_float = image.astype(np.float32)
-
-    # # Compute the average color in each channel
-    # avg_r = np.mean(img_float[:, :, 2])
-    # avg_g = np.mean(img_float[:, :, 1])
-    # avg_b = np.mean(img_float[:, :, 0])
-
-    # # Compute the overall average color
-    # avg_color = (avg_r + avg_g + avg_b) / 3.0
-
-    # # Scale each channel to make the overall average color gray
-    # img_gray_world = img_float * (avg_color / np.array([avg_r, avg_g, avg_b]))
-
-    # # Clip the values to be in the valid range [0, 255]
-    # img_gray_world = np.clip(img_gray_world, 0, 255).astype(np.uint8)
-    # # plt.imshow(img_gray_world)
-    # # plt.show()
-
-    # return img_gray_world
+    surface_normals = np.dstack((normal_x, normal_y, normal_z))
+    return surface_normals
 
 
 def depthMap(image_name):
@@ -120,78 +63,97 @@ def depthMap(image_name):
     return depth_map_resized
 
 
-def transmittanceMap(depth, illumination, alpha=0.1):
-    # invert = 1.0 / img
-    # alpha = 0.1
-    # beta = 1.0
-    # tMap = np.exp(-alpha * invert - beta)
-    # return tMap
-    # def compute_transmittance(depth_map, illumination_map, alpha=0.1):
-    # Normalize depth map
-    normalized_depth = depth
-    illumination = np.broadcast_to(illumination, normalized_depth.shape)
+def coord_to_idx(x, y, width):
+    return y * width + x
 
-    # Compute transmittance
-    transmittance = np.exp(-alpha * normalized_depth * illumination)
 
-    return transmittance
+def transmittanceMap2(img, depth_map):
+    # light_pos = np.array([.3,1.0])
+    light_idx = 0.50
+    # surface_pt = np.array([.4,.6])
+    alpha = 0.1
+    delta = 0.7
+    tmap = np.zeros((img.shape[0], img.shape[1]))
+    # print(((alpha + delta) * surface_pt ** 2).shape)
 
-    # min_channel = np.min(img, axis=2)
-    # window_size = 15
-    # dark_channel = cv2.erode(min_channel, np.ones((window_size, window_size)))
+    # print(f"const {const}")
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    width, height = img.shape
+    # depth_map /= np.max(depth_map)
 
-    # num_pixels = dark_channel.size
-    # num_brightest = int(0.001 * num_pixels)
-    # indices = np.argpartition(
-    #     dark_channel.flatten(), -num_brightest)[-num_brightest:]
+    # depth_max = np.max(depth_map)
 
-    # atmospheric_light = np.max(img.reshape(-1, 3)[indices], axis=0)
-    # omega = 0.1
-    # t0 = 0.9
-    # min_channel2 = np.min(img / atmospheric_light, axis=2)
-    # dark_channel2 = cv2.erode(
-    #     min_channel2, np.ones((window_size, window_size)))
-    # transmission = 1 - omega * dark_channel2
+    # print(depth_map)
+    # todo - get rid of these probably
 
-    # # Clamp the values to be between t0 and 1
-    # transmission = np.maximum(transmission, t0)
-    # transmissionMap = (transmission * 255).astype(np.uint8)
-    # return transmissionMap
+    # dmap = depth_map.copy()
+    # dmap[dmap > depth_max-2000] /= 2
+    # dmap[dmap > depth_max-1000] /= 1.5
+    # dmap /= depth_max
+
+    # print(dmap)
+    # plt.imshow(dmap, cmap="gray")
+    # plt.show()
+
+    # print(f"depth map shape {depth_map.shape}")
+    # plt.imshow(depth_map)
+    # plt.show()
+    for i in range(width):
+        print(f"beginning of i = {i}")
+        for j in range(height):
+            # print(f"beginning of j = {j}")
+            surface_pt = depth_map[i][j]
+            # surface_idx = coord_to_idx(surface_pt[0], surface_pt[1], width)
+            # print(surface_pt)
+            # const = np.exp(-((alpha+delta) * light_pos **2 - (alpha + delta) * surface_pt ** 2) )
+            const = np.exp(-((alpha+delta) * light_idx ** 2 -
+                           (alpha + delta) * surface_pt ** 2))
+
+            img_coord = np.array([i / width, j / height])
+            # img[i][j] /255#coord_to_idx(img_coord[0], img_coord[1], width)
+            img_val = coord_to_idx(i / width, j / height, width) / width
+            # print(f"i : {i} j : {j} i / width {i / width} j // height {j / height} i / height {i/height} j / width {j/width} ")
+            # print(f"img coord {img_coord}")
+            # val2 = np.exp( - ((alpha+delta) * img_coord ** 2 - (alpha + delta) * surface_pt ** 2))
+            print(f"surface idx {surface_pt} img idx {img_val}")
+            val2 = np.exp(- ((alpha+delta) * img_val ** 2 -
+                          (alpha + delta) * surface_pt ** 2))
+            val = const * (val2)
+            print(f"val {val}")
+            tmap[i][j] = val
+
+    # for j in range(height):
+    #     # print(f"beginning of j = {j}")
+    #     for i in range(width):
+    #         # print(f"beginning of j = {j}")
+    #         surface_pt = depth_map[i][j] #/ depth_max
+    #         # surface_idx = coord_to_idx(surface_pt[0], surface_pt[1], width)
+    #         # print(surface_pt)
+    #         # const = np.exp(-((alpha+delta) * light_pos **2 - (alpha + delta) * surface_pt ** 2) )
+    #         const = np.exp(-((alpha+delta) * light_idx **2 - (alpha + delta) * surface_pt ** 2) )
+
+    #         img_coord = np.array([i / width, j / height])
+    #         img_val = coord_to_idx(i / width,j / height, width) / width #img[i][j] /255#coord_to_idx(img_coord[0], img_coord[1], width)
+    #         # print(f"i : {i} j : {j} i / width {i / width} j // height {j / height} i / height {i/height} j / width {j/width} ")
+    #         # print(f"img coord {img_coord}")
+    #         # val2 = np.exp( - ((alpha+delta) * img_coord ** 2 - (alpha + delta) * surface_pt ** 2))
+    #         # print(f"surface idx {surface_pt} img idx {img_val}")
+    #         val2 = np.exp( - ((alpha+delta) * img_val ** 2 - (alpha + delta) * surface_pt ** 2))
+    #         val =  const * (val2)
+    #         # print(f"const {const} val2 {val2} val {val}")
+
+    #         if (val > 1.0):
+    #             val = 1.0
+    #         # print(f"val {val}")
+    #         tmap[i][j] = val
+
+    tmap = np.clip(tmap, 0, 1)
+    return tmap  # np.ones(img.shape) * 255
 
 
 def volumetricMap():
     print("not implemented yet")
 
-
-def add_realistic_fog(image, distance, fog_intensity=0.2):
-    # Generate a random noise image with the same size as the input image
-    noise = np.random.normal(0, 1, image.shape).astype(np.uint8)
-
-    # Calculate the depth-based fog factor
-    fog_factor = np.exp(-distance * fog_intensity)
-
-    # Blend the original image with the noise based on the fog factor
-    foggy_image = cv2.addWeighted(image, 1 - fog_factor, noise, fog_factor, 0)
-
-    return foggy_image
-
-
-# def opticalLength(depth_map, k):
-#     optical_length_map = np.zeros_like(depth_map)
-
-#     for i in range(1, optical_length_map.shape[0]):
-#         optical_length_map[i, :] = optical_length_map[i -
-#                                                       1, :] + k(depth_map[i - 1, :])
-
-#     return optical_length_map
-
-
-# def k_fn(n):
-#     return 0.1 * n
-
-
-# def tMap(optical_length_map):
-#     return np.exp(-optical_length_map)
 
 sun_intensity = 1.0
 sky_intensity = 0.5
@@ -274,21 +236,13 @@ def main():
     plt.show()
 
     reflectionMap = img
-    illumination_map = generate_illumination_map(img)
 
     # depth_map = depthMap(file)
-    depth_grad_x = cv2.Sobel(depth_map, cv2.CV_64F, 1, 0, ksize=3)
-    depth_grad_y = cv2.Sobel(depth_map, cv2.CV_64F, 0, 1, ksize=3)
 
-    normal_x = -depth_grad_x / np.sqrt(depth_grad_x**2 + depth_grad_y**2 + 1)
-    normal_y = -depth_grad_y / np.sqrt(depth_grad_x**2 + depth_grad_y**2 + 1)
-    normal_z = 1 / np.sqrt(depth_grad_x**2 + depth_grad_y**2 + 1)
-
-    surface_normals = np.dstack((normal_x, normal_y, normal_z))
-    surface_normals /= np.linalg.norm(surface_normals)
-
+    # Define your lighting parameters
+    # neg x = from left, neg y = from top
     sun_direction = np.array([-1.0, -0.3, 0.0])
-    sun_direction /= np.linalg.norm(sun_direction)
+    surface_normals = compute_surface_normals(depth_map)
     height, width = depth_map.shape
     illumination_map = np.zeros((height, width))
     incident_light_directions = generate_incident_light_directions()
@@ -299,36 +253,48 @@ def main():
             illumination_map[y, x] = estimate_illumination(
                 surface_normal, sun_direction, incident_light_directions)
 
-    # print("NaN values:", np.isnan(illumination_map).any())
-    # print("Inf values:", np.isinf(illumination_map).any())
-    distance_to_camera = 100
+    # tMap = transmittanceMap(depth_map, illumination_map,light_pos)
+    tMap = transmittanceMap2(img, depth_map)
+    # print(np.max(depth_map))
+    tmap3d = tMap[:, :, np.newaxis]
+    reflectionMap3d = reflectionMap / 255
+    depth_map3d = depth_map[:, :, np.newaxis]
+    # depth_map3d /= np.max(depth_map3d)
+    depth_max = np.max(depth_map3d)
+    # todo - get rid of these probably
+    depth_map3d[depth_map3d > depth_max-2000] /= 2
+    depth_map3d[depth_map3d > depth_max-1000] /= 1.5
+    depth_map3d /= depth_max
+    print(f"{tmap3d} \n\n\n\n {reflectionMap3d} \n\n\n\n {depth_map3d}")
+    out = reflectionMap3d * depth_map3d + tmap3d
+    out = np.clip(out, 0, 1)
 
-    print(f"shapes {depth_map.shape} {img.shape} {illumination_map.shape}")
+    fig, axs = plt.subplots(1, 4, figsize=(10, 5))
 
-    # Add realistic fog with a specified intensity
-    # foggy_image = add_realistic_fog(img, distance_to_camera, fog_intensity=0.2)
-
-    # illumination = illuminationEstimation(depth_map)
-    # inv_map = (255-illumination_map)
-    # tMap = transmittanceMap(depth_map, illumination_map)
-    fig, axs = plt.subplots(1, 3, figsize=(10, 5))
     axs[0].imshow(reflectionMap)
     axs[0].set_title('Reflection')
 
-    # axs[1].imshow(tMap, cmap='gray')
-    # axs[1].set_title('Transmittance')
+    axs[1].imshow(tMap, cmap='gray')
+    axs[1].set_title('Transmittance')
 
-    axs[1].imshow(illumination_map, cmap='gray')
-    axs[1].set_title('Illumination')
+    # axs[2].imshow(illumination_map, cmap='gray')
+    # axs[2].set_title('')
+    # axs[2].imshow(illumination_map, cmap='gray')
+    # axs[2].set_title('Illumination')
+
     # print(illumination_map)
     # print(np.max(inv_map))
+    # print(f"types {reflectionMap.dtype} {tMap.dtype} {illumination_map.dtype} {depth_map.dtype}")
     # print(np.max(reflectionMap))
     # hi = np.multiply(inv_map, reflectionMap)
 
-    # axs[3].imshow(foggy_image, cmap='gray')
-    # axs[3].set_title('Img')
     axs[2].imshow(depth_map, cmap='gray')
     axs[2].set_title('depth')
+
+    axs[3].imshow(out, cmap='gray')
+    axs[3].set_title('combo??')
+    # axs[4].imshow(foggy_image, cmap='gray')
+    # axs[4].set_title('Img')
     # axs[3].imshow(hi,cmap='gray')
     # axs[3].set_title('Img')
     plt.show()
