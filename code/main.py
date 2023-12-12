@@ -168,7 +168,7 @@ def volumetricMap(img, depth_map):
     # for i in range(width):
     #     for j in range(height):
     #         x0 = dmap[i][j] 
-    #         x = img[i][j] / 255 #oord_to_idx(i / width, j / height, width) / width 
+    #         x = coord_to_idx(i / width, j / height, width) / width #0.7#img[i][j] / 255 #
     #         val = (np.exp(-delta * x ** 2 - alpha) - np.exp(-delta * x0 ** 2 - alpha)) - (x * np.exp(-delta * x ** 2 - alpha) - x0 * np.exp(-delta * x0 ** 2 - alpha)) * 50
 
     #         # print(f"surface idx {surface_pt} img idx {img_val}")
@@ -218,9 +218,10 @@ def volumetricMap(img, depth_map):
             tmap[i][j] = val2
             
             # print(f"val {val} const {const} val2 {val2} surface pt {surface_pt} img val {img_val}")
-    plt.imshow(tmap)
+    plt.imshow(tmap, cmap="gray")
     plt.show()
     tmap = np.clip(tmap, 0, 1)
+    # tmap = 1-tmap
     return tmap
 
 
@@ -290,7 +291,7 @@ def depthMap2(img_classes, darkness_factor=.75):
         # ground — gets brighter as it gets nearer
         depth[i, ground_pixels[i, :]] = (i / h) * darkness_factor 
         # intensity = 0.5 #+ (i / h) #* (1.0 - 0.5) * darkness_factor
-        # depth[i, ground_pixels[i, :]] = intensity
+        # depth[i, ground_pixels[i, :]] = intensity 
         # print(intensity)
 
     # deal with edges
@@ -309,8 +310,6 @@ def main():
     depth_map = depthMap2(img_class)
     # plt.imshow(depth_map, cmap='gray')
     # plt.show()
-
-    
     
     reflectionMap = img
 
@@ -327,29 +326,48 @@ def main():
     #             surface_normal, sun_direction, incident_light_directions)
 
     # tMap = transmittanceMap(depth_map, illumination_map,light_pos)
-    tMap = transmittanceMap2(img,depth_map, img_class)
+    tMap = transmittanceMap2(img, depth_map, img_class)
 
     # plt.imshow(tMap, cmap='gray')
     # plt.show()
     # cv2.imwrite(f"../results/out.png", tMap)
 
-    vMap = volumetricMap(img, depth_map)
+    vMap = (1-tMap) * 2 #volumetricMap(img, depth_map)
+    # print(vMap)
+    # vMap[img_class[:, :, 2] == 255] = 0.6
+
     # print(np.max(depth_map))
     tmap3d = tMap[:, :, np.newaxis]
     vmap3d = vMap[:, :, np.newaxis]
+    vmap3d = np.clip(vmap3d, 0., 1.)
     reflectionMap3d = reflectionMap / 255
     depth_map3d = depth_map[:, :, np.newaxis]
+    # print(f"v {vmap3d}")
 
-    out = ((reflectionMap3d ) * (tmap3d)  + (vmap3d / 2)) #* reflectionMap3d
+    out = (np.multiply(reflectionMap3d, tmap3d)  + (vmap3d / 2)) #* reflectionMap3d
     out = np.clip(out, 0, 1)
+    # print(f"dtype {out.dtype}")
+    out = out.astype(np.float32)
 
-    fig, axs = plt.subplots(1, 5, figsize=(10, 5))
+
+    # out = cv2.convertScaleAbs(out)
+    # print(out.shape)
+    output = cv2.cvtColor(out, cv2.COLOR_RGB2BGR)
+    # print(out)
+    cv2.imwrite(f"../results/out.png", output * 255)
+
+    fig, axs = plt.subplots(1, 6, figsize=(10, 5))
 
     axs[0].imshow(reflectionMap)
     axs[0].set_title('Reflection')
 
-    axs[1].imshow(tMap, cmap='gray')
-    axs[1].set_title('Transmittance')
+    axs[1].imshow(img_class)
+    axs[1].set_title('Classification map')
+
+    axs[2].imshow(tMap, cmap='gray')
+    axs[2].set_title('Transmittance')
+
+   
 
     # axs[2].imshow(illumination_map, cmap='gray')
     # axs[2].set_title('')
@@ -362,14 +380,14 @@ def main():
     # print(np.max(reflectionMap))
     # hi = np.multiply(inv_map, reflectionMap)
 
-    axs[2].imshow(depth_map, cmap='gray')
-    axs[2].set_title('depth')
+    axs[3].imshow(depth_map, cmap='gray')
+    axs[3].set_title('Depth map')
 
-    axs[3].imshow(vMap, cmap='gray')
-    axs[3].set_title('vmap??')
+    axs[4].imshow(vMap, cmap='gray')
+    axs[4].set_title('Volumetric Map')
 
-    axs[4].imshow(out, cmap='gray')
-    axs[4].set_title('combo??')
+    axs[5].imshow(out, cmap='gray')
+    axs[5].set_title('Foggy image!?!?')
     # axs[4].imshow(foggy_image, cmap='gray')
     # axs[4].set_title('Img')
     # axs[3].imshow(hi,cmap='gray')
