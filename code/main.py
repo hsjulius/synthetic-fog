@@ -313,10 +313,10 @@ def depthMap2(img_classes, darkness_factor=.75):
 
 
 def main():
-    file = "img2.png"
+    file = "bruh.png"
     img = cv2.imread(f"../data/{file}", )
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    img_class = cv2.imread(f"../data/img2_class.png", )
+    img_class = cv2.imread(f"../data/bruh_class.png", )
     img_class = cv2.cvtColor(img_class, cv2.COLOR_BGR2RGB)
 
     midas_depth_map = depthMap(f"../data/{file}") 
