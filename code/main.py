@@ -198,7 +198,8 @@ def vol(illumination_map, depth_map):
             # accumulate radiance along path
             acc_radiance = 0.0
             for step in range(i, illumination_map.shape[0]):
-                # no neg distances
+                # distance btwn points based on depth map
+                # ensure no neg distances
                 distance = max(depth_map[step, j] - depth_map[i, j], 0.01)
                 optical_len = (absorption + scattering) * distance
                 transmittance = np.exp(-optical_len)
