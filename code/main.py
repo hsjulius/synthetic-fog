@@ -50,11 +50,11 @@ def depthMapMidas(image_name):
     return depth_map_resized
 
 
-def coord_to_idx(x, y, width):
+def coordToIdx(x, y, width):
     return y * width + x
 
 
-def transmittanceMap2(img, depth_map, classified):
+def transmittanceMap(img, depth_map):
     light_idx = -.6
     alpha = 0.1
     delta = 0.7
@@ -82,8 +82,10 @@ def transmittanceMap2(img, depth_map, classified):
     return tmap
 
 
-def volumetricMapWrong(img, depth_map, illumination_map):
-    # steals transmittance map solution
+def volumetricMapWrong(img, depth_map):
+    '''
+        Steals transmittance map solution to create a volume map
+    '''
     light_idx = -.6
     alpha = 0.1
     delta = 0.7
@@ -98,8 +100,8 @@ def volumetricMapWrong(img, depth_map, illumination_map):
             const = np.exp(-((alpha + delta) * light_idx **
                            2 - (alpha + delta) * surface_pt ** 2))
 
-            img_val = coord_to_idx(i / width, j / height,
-                                   width) / width
+            img_val = coordToIdx(i / width, j / height,
+                                 width) / width
 
             val2 = np.exp(-((alpha+delta) * img_val ** 2 -
                           (alpha + delta) * surface_pt ** 2))
@@ -113,7 +115,9 @@ def volumetricMapWrong(img, depth_map, illumination_map):
 
 
 def estimate_illumination(h, w, sun_intensity=0.8, sky_intensity=0.3):
-    # Implementation of light coming top down
+    '''
+        Implements illumination map with light coming top down
+    '''
     sun_component = np.zeros((h, w))
     sky_component = np.zeros((h, w))
 
@@ -141,7 +145,10 @@ def estimate_illumination(h, w, sun_intensity=0.8, sky_intensity=0.3):
         total_illumination - min_illum) / (max_illum - min_illum)
     return normalized_illumination
 
-    # Implementation of light coming from the top left corner
+    '''
+        Implementation of illumination map with light coming from top left
+        corner
+    '''
     # illumination_map = np.full((h, w), sky_intensity)
 
     # sun_direction = np.array([1, 1])  # Sun starts top left
@@ -161,6 +168,9 @@ def estimate_illumination(h, w, sun_intensity=0.8, sky_intensity=0.3):
 
 
 def depthMap(img_classes, darkness_factor=0.75, gradient_exp=2):
+    '''
+        Manual depth map based on pixel classifications
+    '''
     h, w, _ = img_classes.shape
     depth = np.ones((h, w)) * np.nan
 
@@ -184,7 +194,7 @@ def depthMap(img_classes, darkness_factor=0.75, gradient_exp=2):
     return depth
 
 
-def vol(illumination_map, depth_map):
+def volumetricMap(illumination_map, depth_map):
     illumination_map = illumination_map.astype(np.float64)
     depth_map = depth_map.astype(np.float64) / np.max(depth_map)
 
@@ -230,10 +240,10 @@ def main():
     illumination_map = np.zeros((height, width))
     illumination_map = estimate_illumination(height, width)
 
-    v = vol(illumination_map, depth_map)
-    # vMap = volumetricMapWrong(img, depth_map, illumination_map)
+    v = volumetricMap(illumination_map, depth_map)
+    # vMap = volumetricMapWrong(img, depth_map)
 
-    tMap = transmittanceMap2(img, depth_map, img_class)
+    tMap = transmittanceMap(img, depth_map)
 
     tmap3d = tMap[:, :, np.newaxis]
     vmap3d = v[:, :, np.newaxis]
