@@ -82,7 +82,7 @@ def transmittanceMap(img, depth_map):
     return tmap
 
 
-def volumetricMapWrong(img, depth_map):
+def volumetricMapHack(img, depth_map):
     '''
         Steals transmittance map solution to create a volume map
     '''
@@ -241,7 +241,7 @@ def main():
     illumination_map = estimate_illumination(height, width)
 
     v = volumetricMap(illumination_map, depth_map)
-    # vMap = volumetricMapWrong(img, depth_map)
+    # vMap = volumetricMapHack(img, depth_map)
 
     tMap = transmittanceMap(img, depth_map)
 
